@@ -24,34 +24,7 @@ import re
 import os
 import io
 
-
-class LpProfiler :
-    
-    def __init__(self,command):
-        self._cmd=command
-        self._perf_samples_analyzer=None
         
-    def _slurm_run(self,frequency):
-        prepare_cmd='ntasks=$(($SLURM_NTASKS - 1)); '
-        prepare_cmd+='mkdir PERF; '
-        prepare_cmd+='echo "0-$ntasks perf record -g -F {} -o ./PERF/perf.data_%t {}" > profile.conf'.format(frequency,self._cmd)
-
-        print("Executing: "+prepare_cmd)
-        prepare_process=Popen(prepare_cmd,shell=True, stdout=PIPE,stderr=PIPE)
-        stdout,stderr=prepare_process.communicate()
-#        srun_cmd="srun {} --multi-prog profile.conf".format(srun_argument)
-        
-        
-    def run(self,frequency="99"):
-        self._slurm_run(frequency)
-                
-    def analyze(self):
-        pass
-        
-        
-        
-
-
 class PerfSamplesAnalyzer :
 
     def __init__(self,input_file):

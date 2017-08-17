@@ -1,2 +1,2 @@
 # LPprofiler
-Lightweight performance profiler using Linux perf_events.
+Lightweight Performance profiler using Linux perf_events.
