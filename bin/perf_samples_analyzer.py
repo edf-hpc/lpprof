@@ -1,4 +1,3 @@
-#!/usr/bin/python3.4
 # -*- coding: utf-8 -*-
 ##############################################################################
 #  This file is part of the LPprofiler profiling tool.                       #
@@ -25,16 +24,45 @@ import re
 import os
 import io
 
-class perfSamplesAnalyzer :
+
+class LpProfiler :
+    
+    def __init__(self,command):
+        self._cmd=command
+        self._perf_samples_analyzer=None
+        
+    def _slurm_run(self,frequency):
+        prepare_cmd='ntasks=$(($SLURM_NTASKS - 1)); '
+        prepare_cmd+='mkdir PERF; '
+        prepare_cmd+='echo "0-$ntasks perf record -g -F {} -o ./PERF/perf.data_%t {}" > profile.conf'.format(frequency,self._cmd)
+
+        print("Executing: "+prepare_cmd)
+        prepare_process=Popen(prepare_cmd,shell=True, stdout=PIPE,stderr=PIPE)
+        stdout,stderr=prepare_process.communicate()
+#        srun_cmd="srun {} --multi-prog profile.conf".format(srun_argument)
+        
+        
+    def run(self,frequency="99"):
+        self._slurm_run(frequency)
+                
+    def analyze(self):
+        pass
+        
+        
+        
+
+
+class PerfSamplesAnalyzer :
 
     def __init__(self,input_file):
+        self._input_file=input_file
         self._known_assembly_dic = {}
         self._assembly_instructions_counts ={}
 
 
     def _get_perf_script_output(self,perf_options="-f ip,dso"):
         """ Call perf script and analyze output """        
-        perf_cmd="perf script -i {} {}".format(input_file,perf_options)
+        perf_cmd="perf script -i {} {}".format(self._input_file,perf_options)
         
         perf_process=Popen(perf_cmd,shell=True, stdout=PIPE,stderr=PIPE)
         stdout,stderr=perf_process.communicate()
@@ -42,19 +70,8 @@ class perfSamplesAnalyzer :
 
         return perf_output
 
-#    def srun_wrapp(binary,srun_argument="",frequency="99"):
         
-#        prepare_cmd='mkdir PERF; echo "0-$ntasks perf record -g -F {} -o ./PERF/perf.data_%t {}" > profile.conf'.format(frequency,binary)
-
-#        perf_process=Popen(prepare_cmd,shell=True, stdout=PIPE,stderr=PIPE)
-
-#        srun_cmd="srun {} --multi-prog profile.conf".format(srun_argument)
-
-
-        
-        
-        
-    def analyze_perf_samples(self,perf_data_file):
+    def analyze_perf_samples(self):
         """ Count each assembly instruction occurence found in perf samples and store them
         in a dictionnary."""
         
@@ -76,7 +93,7 @@ class perfSamplesAnalyzer :
                         asm_name=self._known_assembly_dic[binary_path+eip] 
                     else:
                         asm_name=self.get_asm_ins(binary_path,eip)
-                        self._known_assembly_dic[binary_path+eip]=self.get_assembly(binary_path,eip)
+                        self._known_assembly_dic[binary_path+eip]=self.get_asm_ins(binary_path,eip)
 
             # Count instruction
             if asm_name in self._assembly_instructions_counts:
@@ -117,14 +134,6 @@ class perfSamplesAnalyzer :
     def report_assembly_usage(self) :
         for asm in self._assembly_instructions_counts :
             print('asm instruction : {} occurence: {}'.format(asm,self._assembly_instructions_counts[asm]))
-        
-        
-
-
-psa=PerfSampleAnalyzer("perf.data_0")
-psa.analyze_perf_samples()
-psa.report_assembly_usage()
-        
 
 
             

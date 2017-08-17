@@ -1,0 +1,42 @@
+#!/usr/bin/python3.4
+# -*- coding: utf-8 -*-
+##############################################################################
+#  This file is part of the LPprofiler profiling tool.                       #
+#        Copyright (C) 2017  EDF SA                                          #
+#                                                                            #
+#  LPprofiler is free software: you can redistribute it and/or modify        #
+#  it under the terms of the GNU General Public License as published by      #
+#  the Free Software Foundation, either version 3 of the License, or         #
+#  (at your option) any later version.                                       #
+#                                                                            #
+#  LPprofiler is distributed in the hope that it will be useful,             #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of            #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the             #
+#  GNU General Public License for more details.                              #
+#                                                                            #
+#  You should have received a copy of the GNU General Public License         #
+#  along with LPprofiler.  If not, see <http://www.gnu.org/licenses/>.       #
+#                                                                            #
+############################################################################## 
+
+import perf_samples_analyzer as psa
+import argparse
+
+parser = argparse.ArgumentParser(description='LPprofiler profiling tool.',\
+                                 formatter_class=argparse.RawTextHelpFormatter)
+
+parser.add_argument("command",help="launch command to be profiled")
+args = parser.parse_args()
+
+
+print(args.command)
+
+lpp=psa.LpProfiler(args.command)
+lpp.run()
+
+
+
+#perfsa=psa.PerfSamplesAnalyzer("PERF2/perf.data_0")
+#perfsa.run()
+#perfsa.analyze_perf_samples()
+#perfsa.report_assembly_usage()
