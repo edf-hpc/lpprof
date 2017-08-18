@@ -19,8 +19,11 @@
 #                                                                            #
 ############################################################################## 
 
-import lp_profiler as lpp
 import argparse
+import os,sys
+sys.path.insert(0,os.getcwd()) # For debugging purpose
+import lpprofiler.lp_profiler as lpp
+
 
 # Manage arguments
 parser = argparse.ArgumentParser(description='LPprofiler profiling tool.',\

@@ -23,7 +23,7 @@ import sys
 import re
 import os
 import io
-
+import operator
         
 class PerfSamplesAnalyzer :
 
@@ -105,8 +105,15 @@ class PerfSamplesAnalyzer :
         
         
     def report_assembly_usage(self) :
-        for asm in self._assembly_instructions_counts :
-            print('asm instruction : {} occurence: {}'.format(asm,self._assembly_instructions_counts[asm]))
+        """ Print assembly instruction occurences counts in descending order """
+
+        sorted_asm_list=sorted(self._assembly_instructions_counts.items(),\
+                               key=operator.itemgetter(1),reverse=True)
+        sum_asm_occ=sum(asm_el[1] for asm_el in sorted_asm_list)
+
+        for asm_el in sorted_asm_list :
+            prop_asm=(asm_el[1]/sum_asm_occ)*100
+            print('asm instruction : {} occurence: {} proportion: {:.2f}%'.format(asm_el[0],asm_el[1],prop_asm))
 
 
             

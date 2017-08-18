@@ -19,11 +19,15 @@
 #                                                                            #
 ############################################################################## 
 
+import sys
+
 try:
     from setuptools import setup
 except ImportError:
     from distutils.core import setup
 
+if sys.version_info < (3,4):
+        sys.exit('Sorry, Python < 3.4 is not supported')
 
 setup(name='lpprofiler',
       version='0.1',
@@ -31,8 +35,8 @@ setup(name='lpprofiler',
       author='EDF CCN HPC',
       author_email='dsp-cspito-ccn-hpc@edf.fr',
       license='GPLv3',
-      platforms=['GNU/Linux']
+      platforms=['GNU/Linux'],
       url='https://github.com/edf-hpc/LPprofiler',
-      scripts=['bin/lpprof'],
+      scripts=['bin/lpprof','tests/tests_samples_analyzer.py'],
       packages=['lpprofiler'],
   )
