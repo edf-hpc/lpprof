@@ -21,7 +21,7 @@
 
 import unittest
 import io,os,sys
-sys.path.insert(0,os.getcwd()) # For debugging purpose
+sys.path.insert(0,os.path.dirname(os.path.realpath(__file__))+"/..") # For debugging purpose
 import lpprofiler.perf_samples_analyzer as psa
 
 
