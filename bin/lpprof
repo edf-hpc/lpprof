@@ -43,4 +43,4 @@ lpprof=lpp.LpProfiler(args.launcher,args.launcher_args,args.binary)
 lpprof.run()
 
 # Get asm profile
-lpprof.analyze()
+lpprof.report()

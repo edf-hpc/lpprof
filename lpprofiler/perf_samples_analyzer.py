@@ -28,14 +28,16 @@ import operator
 class PerfSamplesAnalyzer :
 
     def __init__(self,input_file):
-        self._input_file=input_file
-        self._known_assembly_dic = {}
-        self._assembly_instructions_counts ={}
+        self.input_file=input_file
+        self.known_assembly_dic = {}
+        self.assembly_instructions_counts ={}
 
+        self.analyze_perf_samples()
+        
 
     def _get_perf_script_output(self,perf_options="-f ip,dso"):
         """ Call perf script and analyze output """        
-        perf_cmd="perf script -i {} {}".format(self._input_file,perf_options)
+        perf_cmd="perf script -i {} {}".format(self.input_file,perf_options)
         
         perf_process=Popen(perf_cmd,shell=True, stdout=PIPE,stderr=PIPE)
         stdout,stderr=perf_process.communicate()
@@ -62,17 +64,17 @@ class PerfSamplesAnalyzer :
                 binary_path=m.group(2)
                 # Address from kallsyms won't be analyzed
                 if os.path.exists(binary_path):
-                    if (binary_path+eip) in self._known_assembly_dic:
-                        asm_name=self._known_assembly_dic[binary_path+eip] 
+                    if (binary_path+eip) in self.known_assembly_dic:
+                        asm_name=self.known_assembly_dic[binary_path+eip] 
                     else:
                         asm_name=self.get_asm_ins(binary_path,eip)
-                        self._known_assembly_dic[binary_path+eip]=self.get_asm_ins(binary_path,eip)
+                        self.known_assembly_dic[binary_path+eip]=self.get_asm_ins(binary_path,eip)
 
             # Count instruction
-            if asm_name in self._assembly_instructions_counts:
-                self._assembly_instructions_counts[asm_name]+=1
+            if asm_name in self.assembly_instructions_counts:
+                self.assembly_instructions_counts[asm_name]+=1
             else:
-                self._assembly_instructions_counts[asm_name]=1
+                self.assembly_instructions_counts[asm_name]=1
             
         
     def get_asm_ins(self,binary_path,eip_address,start_address="0x0"):
@@ -97,7 +99,7 @@ class PerfSamplesAnalyzer :
         # Extract assembly instruction and add result to a dictionnary to avoid recomputing it later
         assembly_instruction=first_line_matching_address.split()[2]
 
-        self._known_assembly_dic[binary_path+eip_address]=assembly_instruction
+        self.known_assembly_dic[binary_path+eip_address]=assembly_instruction
     
         return assembly_instruction
 
@@ -107,7 +109,7 @@ class PerfSamplesAnalyzer :
     def report_assembly_usage(self) :
         """ Print assembly instruction sorted by occurences counts in descending order """
 
-        sorted_asm_list=sorted(self._assembly_instructions_counts.items(),\
+        sorted_asm_list=sorted(self.assembly_instructions_counts.items(),\
                                key=operator.itemgetter(1),reverse=True)
         sum_asm_occ=sum(asm_el[1] for asm_el in sorted_asm_list)
 
