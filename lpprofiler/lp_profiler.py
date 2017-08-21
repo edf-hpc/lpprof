@@ -19,7 +19,7 @@
 ############################################################################## 
 
 from subprocess import Popen,PIPE
-import perf_samples_analyzer as psa
+import lpprofiler.perf_samples_analyzer as psa
 import sys
 import re
 
@@ -33,11 +33,19 @@ class LpProfiler :
         self._binary=binary        
         self._perf_samples_analyzer=None
         self._samples_file=None
-        
+
+    def _std_run(self,frequency):
+        """ Run standard exe with perf profiling"""
+        run_cmd='perf record -g -F {} -o perf.data {}'.format(frequency,self._binary)
+        srun_process=Popen(run_cmd,shell=True,stdout=PIPE,stderr=PIPE)
+        print("Start profiling ...")
+        stdout,stderr=run_process.communicate()
+        self._perf_samples_analyzer=psa.PerfSamplesAnalyzer("./PERF/perf.data")
+                        
     def _slurm_run(self,frequency):
         """ Run slurm job with profiling"""
         prepare_cmd='ntasks=$(($SLURM_NTASKS - 1)); '
-        prepare_cmd+='mkdir PERF; '
+        prepare_cmd+='mkdir -p PERF; '
         prepare_cmd+='echo "0-$ntasks perf record -g -F {} -o '.format(frequency)+\
             './PERF/perf.data_%t {}" > profile.conf'.format(self._binary)
         
