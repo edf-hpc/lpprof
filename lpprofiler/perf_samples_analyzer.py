@@ -105,15 +105,19 @@ class PerfSamplesAnalyzer :
         
         
     def report_assembly_usage(self) :
-        """ Print assembly instruction occurences counts in descending order """
+        """ Print assembly instruction sorted by occurences counts in descending order """
 
         sorted_asm_list=sorted(self._assembly_instructions_counts.items(),\
                                key=operator.itemgetter(1),reverse=True)
         sum_asm_occ=sum(asm_el[1] for asm_el in sorted_asm_list)
 
+        print("-------------------------------------------------------")
+        print("|   proportion  | occurence |     asm_instruction     |")
+        print("-------------------------------------------------------")
         for asm_el in sorted_asm_list :
             prop_asm=(asm_el[1]/sum_asm_occ)*100
-            print('asm instruction : {} occurence: {} proportion: {:.2f}%'.format(asm_el[0],asm_el[1],prop_asm))
-
+            print('|'+'{:.2f}%'.format(prop_asm).ljust(15)+'|'+str(asm_el[1]).ljust(11)+'|'+asm_el[0].ljust(25)+'|')
+            
+        print("-------------------------------------------------------")
 
             
