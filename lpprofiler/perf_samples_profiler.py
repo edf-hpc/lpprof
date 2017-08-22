@@ -25,28 +25,46 @@ import os
 import io
 import operator
         
-class PerfSamplesAnalyzer :
+class PerfSamplesProfiler :
 
-    def __init__(self,input_file):
-        self.input_file=input_file
+    def __init__(self,trace_file,output_files=None):
+        self.trace_file=trace_file
+
+        if not(output_files):
+            output_files=[self.trace_file]
+
         self.known_assembly_dic = {}
         self.assembly_instructions_counts ={}
 
-        self.analyze_perf_samples()
+
+    def get_profile_cmd(self,frequency=99):
+        """ Assembly instructions profiling command """
+        return "perf record -g -F {} -o {} ".format(frequency,self.trace_file)
+
+    def analyze(self):
+        """ Standard global analyze method """
+        self._analyze_perf_samples()
+
+    def report(self):
+        """ Standard global reporting method """
+        self.report_assembly_usage()
         
 
     def _get_perf_script_output(self,perf_options="-f ip,dso"):
-        """ Call perf script and analyze output """        
-        perf_cmd="perf script -i {} {}".format(self.input_file,perf_options)
+        """ Call perf script and analyze profiling output files"""
+        perf_output=''
         
-        perf_process=Popen(perf_cmd,shell=True, stdout=PIPE,stderr=PIPE)
-        stdout,stderr=perf_process.communicate()
-        perf_output=stdout.decode('utf-8')
+        for output_file in self.output_files:
+            perf_cmd="perf script -i {} {}".format(output_file,perf_options)
+        
+            perf_process=Popen(perf_cmd,shell=True, stdout=PIPE,stderr=PIPE)
+            stdout,stderr=perf_process.communicate()
+            perf_output+=stdout.decode('utf-8')
 
         return perf_output
 
         
-    def analyze_perf_samples(self):
+    def _analyze_perf_samples(self):
         """ Count each assembly instruction occurence found in perf samples and store them
         in a dictionnary."""
         
@@ -103,10 +121,8 @@ class PerfSamplesAnalyzer :
     
         return assembly_instruction
 
-        
-        
-        
-    def report_assembly_usage(self) :
+                
+    def _report_assembly_usage(self) :
         """ Print assembly instruction sorted by occurences counts in descending order """
 
         sorted_asm_list=sorted(self.assembly_instructions_counts.items(),\

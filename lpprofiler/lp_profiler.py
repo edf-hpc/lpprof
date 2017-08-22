@@ -19,9 +19,9 @@
 ############################################################################## 
 
 from subprocess import Popen,PIPE
-import lpprofiler.perf_samples_analyzer as psa
-import sys
-import re
+import lpprofiler.perf_samples_profiler as psp
+import lpprofiler.perf_hwcounters_profiler as php
+import sys, os, re
 
 
 class LpProfiler :
@@ -37,56 +37,41 @@ class LpProfiler :
         # Binary to profile
         self.binary=binary
 
-        # Sample analyzer instance
-        self.perf_samples_analyzer=None
-
         # Profiling options (TODO: should be customizable at launch )
         self.profiling_flavours=["asm_prof","hwcounters_prof"]
 
-
-    def _get_asm_profile_cmd(self,frequency,output_file):
-        """ Assembly instructions profiling command """
-        return "perf record -g -F {} -o {} ".format(frequency,output_file)
-
-    def _get_hwcounters_profile_cmd(self,output_file):
-        """ Hardware counters profiling command """
-        return "perf stat -e instructions,cycles -D 1000 -o {} ".format(output_file)
-
+        # List of profilers
+        if (self.launcher=='srun'):
+            os.mkdir("PERF")
+            self.profilers=[php.PerfHWcountersProfiler("./PERF/perf.stats_%t",["./PERF/perf.stats_0"]),\
+                            psp.PerfSamplesAnalyzer("./PERF/perf.data_%t",["/PERF/perf.data_0"])]
+        elif (self.launcher=='std'):
+            os.mkdir("PERF")
+            self.profilers=[php.PerfHWcountersProfiler("./PERF/perf.stats"),\
+                            psp.PerfSamplesAnalyzer("./PERF/perf.data")]
     
     def _std_run(self,frequency):
         """ Run standard exe with perf profiling """
 
-        run_cmd='mkdir -p PERF; '
-        if ("hwcounters_prof" in self.profiling_flavours):
-            run_cmd+=self._get_hwcounters_profile_cmd("./PERF/perf.data")
-        if ("asm_prof" in self.profiling_flavours):
-            run_cmd+=self._get_asm_profile_cmd(frequency,"./PERF/perf.stats")
+        for prof in self.profilers :
+            run_cmd+=prof.get_profile_cmd()
         
-        srun_process=Popen(run_cmd+self.binary,shell=True,stdout=PIPE,stderr=PIPE)
-        print("Start profiling ...")
-        stdout,stderr=run_process.communicate()
+        run_cmd+=binary
+        srun_process=Popen(run_cmd,shell=True)
+        # Wait for the command to finish
+        run_process.communicate()
 
-        # Build perf sample analyzer
-        self.perf_samples_analyzer=psa.PerfSamplesAnalyzer("./PERF/perf.data")
-        
                         
     def _slurm_run(self,frequency):
         """ Run slurm job with profiling """
         prepare_cmd='ntasks=$(($SLURM_NTASKS - 1)); '
-        prepare_cmd+='mkdir -p PERF; '
         prepare_cmd+='echo "0-$ntasks '
-        
-        if ("hwcounters_prof" in self.profiling_flavours):
-            prepare_cmd+=self._get_hwcounters_profile_cmd("./PERF/perf.stats_%t")
-            
-        if ("asm_prof" in self.profiling_flavours):
-            prepare_cmd+=self._get_asm_profile_cmd(frequency,"./PERF/perf.data_%t")
-            
+
+        for prof in self.profilers :
+            prepare_cmd+=prof.get_profile_cmd()
+   
         prepare_cmd+=' {} "> lpprofiler.conf'.format(self.binary)
 
-
-        print("prepare_cmd: "+prepare_cmd)
-        
         prepare_process=Popen(prepare_cmd,shell=True, stdout=PIPE,stderr=PIPE)
         stdout,stderr=prepare_process.communicate()
 
@@ -97,17 +82,15 @@ class LpProfiler :
 
         srun_argument="--cpu_bind=cores,verbose"
         srun_cmd="srun {} --multi-prog lpprofiler.conf".format(self.launcher_args)
-        srun_process=Popen(srun_cmd,shell=True,stdout=PIPE,stderr=PIPE)
+        srun_process=Popen(srun_cmd,shell=True)
+        # Wait for the command to finish
+        srun_process.communicate()
 
-        print("Start profiling ...")
-        stdout,stderr=srun_process.communicate()
-
-        # Analyze only the result of rank 0
-        self.perf_samples_analyzer=psa.PerfSamplesAnalyzer("./PERF/perf.data_0")
-
-        
+    
     def run(self,frequency="99"):
         """ Run job with profiling """
+
+        # Execute profiling possibly with parallel launcher.
         if (self.launcher=='srun'):
             self._slurm_run(frequency)
         elif (self.launcher=='std'):
@@ -116,12 +99,15 @@ class LpProfiler :
             print("Unsupported launcher: "+self.launcher)
             exit
 
+        # Calls to analyze
+        for prof in self.profilers :
+            prof.analyze()
+            
                 
     def report(self):
-        """ Print profiling report """
-        if (self.perf_samples_analyzer):
-            self.perf_samples_analyzer.report_assembly_usage()
-        else:
-            print("Error: no sample found")
+        """ Print profiling reports """
+        for prof in self.profilers :
+            prof.report()
+                    
 
         
