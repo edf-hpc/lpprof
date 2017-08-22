@@ -28,9 +28,12 @@ class PerfHWcountersProfiler :
     def __init__(self,trace_file,output_files=None):
         self.trace_file=trace_file
         
-        if not(output_files):
-            output_files=[self.trace_file]
-            
+        if output_files:
+            self.output_files=output_files
+        else:
+            self.output_files=[self.trace_file]
+
+        self.hwcounters_count_dic={}
     
     def get_profile_cmd(self):
         """ Hardware counters profiling command """
@@ -38,14 +41,34 @@ class PerfHWcountersProfiler :
         return "perf stat -x / -e instructions,cycles -D 1000 -o {} ".format(self.trace_file)
 
     def analyze(self):
-        pass
+        """ Sum hardware counters over evry output file and compute the mean. """
+        for stats_file in self.output_files:
+            with open(stats_file,'r') as sf:
+                for line in sf:
+                    splitted_line=line.rstrip().split("//")
+                    if len(splitted_line)==2:
+                        if splitted_line[1] in self.hwcounters_count_dic:
+                            self.hwcounters_count_dic[splitted_line[1]]+=int(splitted_line[0])
+                        else:
+                            self.hwcounters_count_dic[splitted_line[1]]=int(splitted_line[0])
+
+        for hwcounter in self.hwcounters_count_dic:
+            self.hwcounters_count_dic[hwcounter]/=len(self.output_files)
+            
+                        
 
     def report(self):
         """ Standard global reporting method """
-        self.report_inscount()
+        self.report_inspercycle()
 
-    def report_inscount(self):
-        pass
+    def report_inspercycle(self):
+
+        if ("instructions" in self.hwcounters_count_dic) and ("cycles" in self.hwcounters_count_dic) :
+            nb_ins=self.hwcounters_count_dic["instructions"]
+            nb_cycles=self.hwcounters_count_dic["cycles"]
+            
+        print("Instructions per cycle : "+str(nb_ins/nb_cycles))
+            
 
     def report_tlbmiss(self):
         pass
