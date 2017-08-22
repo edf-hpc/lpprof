@@ -30,14 +30,16 @@ class PerfSamplesProfiler :
     def __init__(self,trace_file,output_files=None):
         self.trace_file=trace_file
 
-        if not(output_files):
-            output_files=[self.trace_file]
-
+        if output_files:
+            self.output_files=output_files
+        else:
+            self.output_files=[self.trace_file]
+            
         self.known_assembly_dic = {}
         self.assembly_instructions_counts ={}
 
 
-    def get_profile_cmd(self,frequency=99):
+    def get_profile_cmd(self,frequency="99"):
         """ Assembly instructions profiling command """
         return "perf record -g -F {} -o {} ".format(frequency,self.trace_file)
 
@@ -47,7 +49,7 @@ class PerfSamplesProfiler :
 
     def report(self):
         """ Standard global reporting method """
-        self.report_assembly_usage()
+        self._report_assembly_usage()
         
 
     def _get_perf_script_output(self,perf_options="-f ip,dso"):
@@ -56,7 +58,7 @@ class PerfSamplesProfiler :
         
         for output_file in self.output_files:
             perf_cmd="perf script -i {} {}".format(output_file,perf_options)
-        
+
             perf_process=Popen(perf_cmd,shell=True, stdout=PIPE,stderr=PIPE)
             stdout,stderr=perf_process.communicate()
             perf_output+=stdout.decode('utf-8')
@@ -88,11 +90,11 @@ class PerfSamplesProfiler :
                         asm_name=self.get_asm_ins(binary_path,eip)
                         self.known_assembly_dic[binary_path+eip]=self.get_asm_ins(binary_path,eip)
 
-            # Count instruction
-            if asm_name in self.assembly_instructions_counts:
-                self.assembly_instructions_counts[asm_name]+=1
-            else:
-                self.assembly_instructions_counts[asm_name]=1
+                # Count instruction
+                if asm_name in self.assembly_instructions_counts:
+                    self.assembly_instructions_counts[asm_name]+=1
+                else:
+                    self.assembly_instructions_counts[asm_name]=1
             
         
     def get_asm_ins(self,binary_path,eip_address,start_address="0x0"):

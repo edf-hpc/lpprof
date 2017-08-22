@@ -44,11 +44,11 @@ class LpProfiler :
         if (self.launcher=='srun'):
             os.mkdir("PERF")
             self.profilers=[php.PerfHWcountersProfiler("./PERF/perf.stats_%t",["./PERF/perf.stats_0"]),\
-                            psp.PerfSamplesAnalyzer("./PERF/perf.data_%t",["/PERF/perf.data_0"])]
+                            psp.PerfSamplesProfiler("./PERF/perf.data_%t",["./PERF/perf.data_0"])]
         elif (self.launcher=='std'):
             os.mkdir("PERF")
             self.profilers=[php.PerfHWcountersProfiler("./PERF/perf.stats"),\
-                            psp.PerfSamplesAnalyzer("./PERF/perf.data")]
+                            psp.PerfSamplesProfiler("./PERF/perf.data")]
     
     def _std_run(self,frequency):
         """ Run standard exe with perf profiling """
