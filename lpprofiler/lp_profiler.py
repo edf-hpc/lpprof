@@ -40,6 +40,8 @@ class LpProfiler :
         # Profiling options (TODO: should be customizable at launch )
         self.profiling_flavours=["asm_prof","hwcounters_prof"]
 
+        self.global_metrics={}
+        
         # List of profilers
         if (self.launcher=='srun'):
             os.mkdir("PERF")
@@ -106,8 +108,34 @@ class LpProfiler :
                 
     def report(self):
         """ Print profiling reports """
+        
+        
         for prof in self.profilers :
             prof.report()
                     
+        # Combine global metrics to build new ones 
+        for prof in self.profilers :
+            self.global_metrics.update(prof.global_metrics)
 
+        self._report_dgflops()
+
+    def _report_dgflops(self):
+
+        print(self.global_metrics)
+        
+        if ("dflop_per_ins" in self.global_metrics )and\
+           ("instructions" in self.global_metrics)and\
+           ("cpu-clock" in self.global_metrics):
+            
+            dflop_per_ins=self.global_metrics["dflop_per_ins"]
+            nb_ins=self.global_metrics["instructions"]
+            cpu_clock=self.global_metrics["cpu-clock"]
+
+            # cpu_clock is in ms and output in Gflops
+            dgflops=(dflop_per_ins*nb_ins)/(cpu_clock*10**6)
+            
+            print ("Estimated Glops per core : {:.2f} Gflops".format(dgflops))
+            
+
+            
         

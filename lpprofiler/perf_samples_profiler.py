@@ -28,17 +28,49 @@ import operator
 class PerfSamplesProfiler :
 
     def __init__(self,trace_file,output_files=None):
+        """ Trace file is the name used as output to generate the profiling command. 
+        Lpprofiler can adapt the original profiling command to make it write multiple output_files
+        (ex: one per rank with srun). """
+        
         self.trace_file=trace_file
 
         if output_files:
             self.output_files=output_files
         else:
             self.output_files=[self.trace_file]
-            
+
+        # This dictionnary fasten assembly instruction decoding from address by
+        # keeping assembly instructions for adress that have already been decoded.
         self.known_assembly_dic = {}
+        
         self.assembly_instructions_counts ={}
 
+    @property
+    def global_metrics(self):
+        """ Return a dictionnary with metrics that could be used outside this pofiler """
+        global_metrics={}
+        
+        # Compute a dflop_per_ins metric
+        dflop=0
+        total_sampled_ins=0
+        
+        for asm_name in self.assembly_instructions_counts:
+            current_count=self.assembly_instructions_counts[asm_name]
+            total_sampled_ins+=current_count
+            if asm_name.endswith("pd"):
+                if asm_name.startswith("vfmadd"):
+                    dflop+=8*current_count
+                elif asm_name.startswith("vadd"):
+                    dflop+=4*current_count
+                elif asm_name.startswith("vmul"):
+                    dflop+=4*current_count
+        
+                    
+        global_metrics["dflop_per_ins"]=dflop/total_sampled_ins
 
+        return global_metrics
+
+        
     def get_profile_cmd(self,frequency="99"):
         """ Assembly instructions profiling command """
         return "perf record -g -F {} -o {} ".format(frequency,self.trace_file)
@@ -95,7 +127,6 @@ class PerfSamplesProfiler :
                     self.assembly_instructions_counts[asm_name]+=1
                 else:
                     self.assembly_instructions_counts[asm_name]=1
-            
         
     def get_asm_ins(self,binary_path,eip_address,start_address="0x0"):
         """ Get assembler instruction from instruction pointer and binary path """
@@ -131,6 +162,7 @@ class PerfSamplesProfiler :
                                key=operator.itemgetter(1),reverse=True)
         sum_asm_occ=sum(asm_el[1] for asm_el in sorted_asm_list)
 
+        print()
         print("-------------------------------------------------------")
         print("|   proportion  | occurence |     asm_instruction     |")
         print("-------------------------------------------------------")

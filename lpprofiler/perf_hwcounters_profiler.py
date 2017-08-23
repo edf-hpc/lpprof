@@ -33,13 +33,30 @@ class PerfHWcountersProfiler :
         else:
             self.output_files=[self.trace_file]
 
-        self.hwcounters_count_dic={}
+        # Dictionnary containing count for each monitored hardware counter
+        self.hwc_count_dic={}
+
+
+    @property
+    def global_metrics(self):
+        """ Return a dictionnary with metrics that could be used outside this pofiler """
+        return self.hwc_count_dic
+        
     
     def get_profile_cmd(self):
         """ Hardware counters profiling command """
         # Add a delay of 1 second to avoid counting 'perf record' launching hw counters stats.
-        return "perf stat -x / -e instructions,cycles -D 1000 -o {} ".format(self.trace_file)
+        counters=[]
+        counters.append("instructions")
+        counters.append("cycles")
+        counters.append("cpu/event=0x08,umask=0x10,name=dTLBmiss_cycles/")
+        counters.append("cpu/event=0x85,umask=0x10,name=iTLBmiss_cycles/")
+        counters.append("cpu-clock")
+        
+        return "perf stat -x / -e {} -D 1000 -o {} ".format(','.join(counters),self.trace_file)
 
+
+    
     def analyze(self):
         """ Sum hardware counters over evry output file and compute the mean. """
         for stats_file in self.output_files:
@@ -47,30 +64,48 @@ class PerfHWcountersProfiler :
                 for line in sf:
                     splitted_line=line.rstrip().split("//")
                     if len(splitted_line)==2:
-                        if splitted_line[1] in self.hwcounters_count_dic:
-                            self.hwcounters_count_dic[splitted_line[1]]+=int(splitted_line[0])
+                        # Convert , to . to be sure floats are well formatted
+                        local_count=float(splitted_line[0].replace(',', '.'))
+                        if splitted_line[1] in self.hwc_count_dic:
+                            self.hwc_count_dic[splitted_line[1]]+=local_count
                         else:
-                            self.hwcounters_count_dic[splitted_line[1]]=int(splitted_line[0])
+                            self.hwc_count_dic[splitted_line[1]]=local_count
 
-        for hwcounter in self.hwcounters_count_dic:
-            self.hwcounters_count_dic[hwcounter]/=len(self.output_files)
+        for hwcounter in self.hwc_count_dic:
+            self.hwc_count_dic[hwcounter]/=len(self.output_files)
             
                         
 
     def report(self):
         """ Standard global reporting method """
+        print()
+        print(self.hwc_count_dic)
+        print("Hardware counters report :")
+        print("-------------------------------------------------------")
         self.report_inspercycle()
+        self.report_tlbmiss_cost()
+        print("-------------------------------------------------------")
+
 
     def report_inspercycle(self):
-
-        if ("instructions" in self.hwcounters_count_dic) and ("cycles" in self.hwcounters_count_dic) :
-            nb_ins=self.hwcounters_count_dic["instructions"]
-            nb_cycles=self.hwcounters_count_dic["cycles"]
+        """ Compute and print instruction per cycle ratio"""
+        if ("instructions" in self.hwc_count_dic) and ("cycles" in self.hwc_count_dic) :
+            nb_ins=self.hwc_count_dic["instructions"]
+            nb_cycles=self.hwc_count_dic["cycles"]
             
-        print("Instructions per cycle : "+str(nb_ins/nb_cycles))
+            print("Instructions per cycle : {:.2f}".format(nb_ins/nb_cycles))
             
 
-    def report_tlbmiss(self):
-        pass
+    def report_tlbmiss_cost(self):
+        """ Compute and print cycles spent in the page table walking caused by TLB miss """
+        
+        if ("dTLBmiss_cycles" in self.hwc_count_dic) and ("iTLBmiss_cycles" in self.hwc_count_dic) :
+            nb_pagewalk_cycles=self.hwc_count_dic["iTLBmiss_cycles"]+self.hwc_count_dic["iTLBmiss_cycles"]
+            nb_cycles=self.hwc_count_dic["cycles"]
+            
+            print("Percentage of cycles spent in page table walking caused by TLB miss : {:.2f} ".format((nb_pagewalk_cycles*100)/nb_cycles)+'%')
+
+    
+
         
             
