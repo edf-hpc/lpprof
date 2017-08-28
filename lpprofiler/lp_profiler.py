@@ -21,7 +21,8 @@
 from subprocess import Popen,PIPE
 import lpprofiler.perf_samples_profiler as psp
 import lpprofiler.perf_hwcounters_profiler as php
-import sys, os, re
+import sys, os, stat, re, datetime
+
 
 
 class LpProfiler :
@@ -41,16 +42,22 @@ class LpProfiler :
         self.profiling_flavours=["asm_prof","hwcounters_prof"]
 
         self.global_metrics={}
+
+        today=datetime.date.today()
+        self.traces_directory="PERF_{}".format(today.isoformat())
+
+        os.mkdir(self.traces_directory)
         
         # List of profilers
         if (self.launcher=='srun'):
-            os.mkdir("PERF")
-            self.profilers=[php.PerfHWcountersProfiler("./PERF/perf.stats_%t",["./PERF/perf.stats_0"]),\
-                            psp.PerfSamplesProfiler("./PERF/perf.data_%t",["./PERF/perf.data_0"])]
+            self.profilers=[php.PerfHWcountersProfiler("./{}/perf.stats_%t".format(self.traces_directory),\
+                                                       ["./{}/perf.stats_0".format(self.traces_directory)]),\
+                            psp.PerfSamplesProfiler("./{}/perf.data_%t".format(self.traces_directory),\
+                                                    ["./{}/perf.data_0".format(self.traces_directory)])]
+
         elif (self.launcher=='std'):
-            os.mkdir("PERF")
-            self.profilers=[php.PerfHWcountersProfiler("./PERF/perf.stats"),\
-                            psp.PerfSamplesProfiler("./PERF/perf.data")]
+            self.profilers=[php.PerfHWcountersProfiler("./{}/perf.stats".format(self.traces_directory)),\
+                            psp.PerfSamplesProfiler("./{}/perf.data".format(self.traces_directory))]
     
     def _std_run(self,frequency):
         """ Run standard exe with perf profiling """
@@ -66,24 +73,22 @@ class LpProfiler :
                         
     def _slurm_run(self,frequency):
         """ Run slurm job with profiling """
-        prepare_cmd='ntasks=$(($SLURM_NTASKS - 1)); '
-        prepare_cmd+='echo "0-$ntasks '
 
+        profile_cmd=""
         for prof in self.profilers :
-            prepare_cmd+=prof.get_profile_cmd()
-   
-        prepare_cmd+=' {} "> lpprofiler.conf'.format(self.binary)
+            profile_cmd+=prof.get_profile_cmd()
 
-        prepare_process=Popen(prepare_cmd,shell=True, stdout=PIPE,stderr=PIPE)
-        stdout,stderr=prepare_process.communicate()
+        slurm_ntasks=os.environ["SLURM_NTASKS"]
+        with open("./lpprofiler.conf","w") as f_conf:
+            f_conf.write("0-{} bash ./profile_cmd.sh %t".format(int(slurm_ntasks)-1))
 
-        if stderr:
-            print("Error while writing slurm multiprog configuration file for profiling: "\
-                  +stderr.decode('utf-8'))
-            exit
+        with open("./profile_cmd.sh","w") as f_cmd:
+            f_cmd.write(profile_cmd.replace('%t','$1')+self.binary)
+            
 
         srun_argument="--cpu_bind=cores,verbose"
-        srun_cmd="srun {} --multi-prog lpprofiler.conf".format(self.launcher_args)
+        srun_cmd='chmod +x ./profile_cmd.sh; srun {} --multi-prog lpprofiler.conf'.format(self.launcher_args)
+                        
         srun_process=Popen(srun_cmd,shell=True)
         # Wait for the command to finish
         srun_process.communicate()
@@ -109,7 +114,6 @@ class LpProfiler :
     def report(self):
         """ Print profiling reports """
         
-        
         for prof in self.profilers :
             prof.report()
                     
@@ -118,7 +122,13 @@ class LpProfiler :
             self.global_metrics.update(prof.global_metrics)
 
         self._report_dgflops()
+        self._report_mpi_usage()
 
+    def _report_mpi_usage(self):
+        if ("mpi_samples_prop" in self.global_metrics):
+            mpi_samples_prop=self.global_metrics["mpi_samples_prop"]
+            print ("Estimated mpi communication time : {:.2f} %".format(mpi_samples_prop))
+    
     def _report_dgflops(self):
 
         print(self.global_metrics)
