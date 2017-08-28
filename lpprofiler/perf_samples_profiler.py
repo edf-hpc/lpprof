@@ -28,7 +28,7 @@ import operator
 class PerfSamplesProfiler :
 
     def __init__(self,trace_file,output_files=None):
-        """ Trace file is the name used as output to generate the profiling command. 
+        """ trace_file is the filename used as output to generate the profiling command. 
         Lpprofiler can adapt the original profiling command to make it write multiple output_files
         (ex: one per rank with srun). """
         
@@ -43,7 +43,12 @@ class PerfSamplesProfiler :
         # keeping assembly instructions for adress that have already been decoded.
         self.known_assembly_dic = {}
         
-        self.assembly_instructions_counts ={}
+        self.assembly_instructions_counts = {}
+
+        self.mpi_samples=0
+
+        # Store starting addresses of binaries mapped into the virtual addres space of the main process
+        self.binary_mapping={}
 
     @property
     def global_metrics(self):
@@ -51,23 +56,37 @@ class PerfSamplesProfiler :
         global_metrics={}
         
         # Compute a dflop_per_ins metric
+        # /!\ Sqrt is counted as mul and add
+
         dflop=0
         total_sampled_ins=0
         
         for asm_name in self.assembly_instructions_counts:
             current_count=self.assembly_instructions_counts[asm_name]
             total_sampled_ins+=current_count
+            dflop_tmp=0
+
+            # Handle x86_asm assembly
+            # TODO handle non x86 assembly
+
             if asm_name.endswith("pd"):
-                if asm_name.startswith("vfmadd"):
-                    dflop+=8*current_count
-                elif asm_name.startswith("vadd"):
-                    dflop+=4*current_count
-                elif asm_name.startswith("vmul"):
-                    dflop+=4*current_count
-        
+                dflop_tmp=2
+            elif asm_name.endswith("sd"):
+                dflop_tmp=1
+            else:
+                dflop_tmp=0
+
+            if asm_name.startswith("vfmadd"):
+                dflop+=dflop_tmp*4*current_count
+            elif asm_name.startswith("v"):
+                dflop+=dflop_tmp*2*current_count
+            else:
+                dflop+=dflop_tmp*current_count
                     
         global_metrics["dflop_per_ins"]=dflop/total_sampled_ins
-
+        global_metrics["mpi_samples_prop"]=self.mpi_samples/total_sampled_ins
+        
+        
         return global_metrics
 
         
@@ -82,7 +101,23 @@ class PerfSamplesProfiler :
     def report(self):
         """ Standard global reporting method """
         self._report_assembly_usage()
-        
+
+    def _read_mmap_table(self):
+        """ Fill a dictionary with binary mappings read from perf samples """
+        for output_file in self.output_files:
+            perf_cmd="perf script -i {} --show-mmap-events | grep -i 'PERF\_RECORD\_MMAP'".format(output_file)
+
+            perf_process=Popen(perf_cmd,shell=True, stdout=PIPE,stderr=PIPE)            
+            stdout,stderr=perf_process.communicate()
+            raw_mmap=io.StringIO(stdout.decode('utf-8'))
+
+            for mapline in raw_mmap:
+                if 'PERF_RECORD_MMAP' in mapline:
+                    binary=mapline.split(' ')[-1].rstrip()
+                    m = re.match(r"^.*\[(\w+)\(",mapline)
+                    start_address=m.group(1)
+                    self.binary_mapping[binary]=start_address
+                    
 
     def _get_perf_script_output(self,perf_options="-f ip,dso"):
         """ Call perf script and analyze profiling output files"""
@@ -103,10 +138,13 @@ class PerfSamplesProfiler :
         in a dictionnary."""
         
         asm_name="unknown"
+
+        """ Read binary mappings from samples """
+        self._read_mmap_table()
         
         """ Get instruction pointer and dynamic shared object location from samples """        
         perf_script_output = io.StringIO(self._get_perf_script_output("-f ip,dso"))
-
+        self.mpi_samples=0
         
         for line in perf_script_output:
             m=re.match(r"\s+(\w+)\s+\((.*)\)\s+",line)
@@ -119,14 +157,20 @@ class PerfSamplesProfiler :
                     if (binary_path+eip) in self.known_assembly_dic:
                         asm_name=self.known_assembly_dic[binary_path+eip] 
                     else:
-                        asm_name=self.get_asm_ins(binary_path,eip)
-                        self.known_assembly_dic[binary_path+eip]=self.get_asm_ins(binary_path,eip)
+                        start_address=self.binary_mapping[binary_path]
+                        asm_name=self.get_asm_ins(binary_path,eip,start_address)
+                        self.known_assembly_dic[binary_path+eip]=asm_name
 
                 # Count instruction
                 if asm_name in self.assembly_instructions_counts:
                     self.assembly_instructions_counts[asm_name]+=1
                 else:
                     self.assembly_instructions_counts[asm_name]=1
+
+                # Count MPI lib occurence
+                if "libmpi" in binary_path:
+                    self.mpi_samples+=1
+                
         
     def get_asm_ins(self,binary_path,eip_address,start_address="0x0"):
         """ Get assembler instruction from instruction pointer and binary path """
@@ -148,7 +192,7 @@ class PerfSamplesProfiler :
             return 'unknown'
 
         # Extract assembly instruction and add result to a dictionnary to avoid recomputing it later
-        assembly_instruction=first_line_matching_address.split()[2]
+        assembly_instruction=first_line_matching_address.split()[2].rstrip()
 
         self.known_assembly_dic[binary_path+eip_address]=assembly_instruction
     
