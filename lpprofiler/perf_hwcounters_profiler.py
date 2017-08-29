@@ -18,7 +18,6 @@
 #                                                                            #
 ############################################################################## 
 
-from subprocess import Popen,PIPE
 import sys
 import re
 import os
@@ -78,34 +77,7 @@ class PerfHWcountersProfiler :
 
     def report(self):
         """ Standard global reporting method """
-        print()
-        print(self.hwc_count_dic)
-        print("Hardware counters report :")
-        print("-------------------------------------------------------")
-        self.report_inspercycle()
-        self.report_tlbmiss_cost()
-        print("-------------------------------------------------------")
-
-
-    def report_inspercycle(self):
-        """ Compute and print instruction per cycle ratio"""
-        if ("instructions" in self.hwc_count_dic) and ("cycles" in self.hwc_count_dic) :
-            nb_ins=self.hwc_count_dic["instructions"]
-            nb_cycles=self.hwc_count_dic["cycles"]
-            
-            print("Instructions per cycle : {:.2f}".format(nb_ins/nb_cycles))
-            
-
-    def report_tlbmiss_cost(self):
-        """ Compute and print cycles spent in the page table walking caused by TLB miss """
-        
-        if ("dTLBmiss_cycles" in self.hwc_count_dic) and ("iTLBmiss_cycles" in self.hwc_count_dic) :
-            nb_pagewalk_cycles=self.hwc_count_dic["iTLBmiss_cycles"]+self.hwc_count_dic["iTLBmiss_cycles"]
-            nb_cycles=self.hwc_count_dic["cycles"]
-            
-            print("Percentage of cycles spent in page table walking caused by TLB miss : {:.2f} ".format((nb_pagewalk_cycles*100)/nb_cycles)+'%')
-
-    
+        pass
 
         
             
