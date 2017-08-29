@@ -21,6 +21,7 @@
 from subprocess import Popen,PIPE
 import lpprofiler.perf_samples_profiler as psp
 import lpprofiler.perf_hwcounters_profiler as php
+import lpprofiler.valgrind_memory_profiler as vmp
 import sys, os, stat, re, datetime
 
 
@@ -50,14 +51,23 @@ class LpProfiler :
         
         # List of profilers
         if (self.launcher=='srun'):
-            self.profilers=[php.PerfHWcountersProfiler("./{}/perf.stats_%t".format(self.traces_directory),\
-                                                       ["./{}/perf.stats_0".format(self.traces_directory)]),\
-                            psp.PerfSamplesProfiler("./{}/perf.data_%t".format(self.traces_directory),\
-                                                    ["./{}/perf.data_0".format(self.traces_directory)])]
+            self.profilers=[
+#                vmp.ValgrindMemoryProfiler(
+#                "./{}/val.mem_%t".format(self.traces_directory),\
+ #               ["./{}/val.mem_0".format(self.traces_directory)])#,\
+                 php.PerfHWcountersProfiler(
+                 "./{}/perf.stats_%t".format(self.traces_directory),\
+                 ["./{}/perf.stats_0".format(self.traces_directory)]),\
+                 psp.PerfSamplesProfiler(
+                 "./{}/perf.data_%t".format(self.traces_directory),\
+                 ["./{}/perf.data_0".format(self.traces_directory)]),\
+            ]
 
         elif (self.launcher=='std'):
-            self.profilers=[php.PerfHWcountersProfiler("./{}/perf.stats".format(self.traces_directory)),\
-                            psp.PerfSamplesProfiler("./{}/perf.data".format(self.traces_directory))]
+            self.profilers=[
+                php.PerfHWcountersProfiler("./{}/perf.stats".format(self.traces_directory)),\
+                psp.PerfSamplesProfiler("./{}/perf.data".format(self.traces_directory))
+            ]
     
     def _std_run(self,frequency):
         """ Run standard exe with perf profiling """
@@ -113,26 +123,61 @@ class LpProfiler :
                 
     def report(self):
         """ Print profiling reports """
-        
-        for prof in self.profilers :
-            prof.report()
                     
-        # Combine global metrics to build new ones 
+        # Combine metrics from all profilers in a single dictionary.
         for prof in self.profilers :
             self.global_metrics.update(prof.global_metrics)
 
+        print("-------------------------------------------------------")
+        self._report_elapsedtime()
+        print("-------------------------------------------------------")
+        self._report_inspercycle()
+        print("-------------------------------------------------------")
         self._report_dgflops()
+        print("-------------------------------------------------------")
+        self._report_tlbmiss_cost()
+        print("-------------------------------------------------------")
         self._report_mpi_usage()
+        print("-------------------------------------------------------")
+
+
+        # Reporting that are internal to profilers and may not be stored in
+        # a dictionnary.
+        for prof in self.profilers :
+            prof.report()
+
+
+    def _report_elapsedtime(self):
+        if ("cpu-clock" in self.global_metrics) :
+            cpu_clock_s=self.global_metrics["cpu-clock"]/1000
+            print("Elasped time : {:.2f}s".format(cpu_clock_s))
+
+    def _report_inspercycle(self):
+        """ Compute and print instruction per cycle ratio"""
+        if ("instructions" in self.global_metrics) and ("cycles" in self.global_metrics) :
+            nb_ins=self.global_metrics["instructions"]
+            nb_cycles=self.global_metrics["cycles"]
+
+            print("Instructions per cycle : {:.2f}".format(nb_ins/nb_cycles))
+
+    def _report_tlbmiss_cost(self):
+        """ Compute and print cycles spent in the page table walking caused by TLB miss """
+        
+        if ("dTLBmiss_cycles" in self.global_metrics) and ("iTLBmiss_cycles" in self.global_metrics) :
+            nb_pagewalk_cycles=self.global_metrics["iTLBmiss_cycles"]+self.global_metrics["iTLBmiss_cycles"]
+            nb_cycles=self.global_metrics["cycles"]
+            
+            print("Percentage of cycles spent in page table walking caused by TLB miss : {:.2f} ".format((nb_pagewalk_cycles*100)/nb_cycles)+'%')
+
+        
 
     def _report_mpi_usage(self):
         if ("mpi_samples_prop" in self.global_metrics):
             mpi_samples_prop=self.global_metrics["mpi_samples_prop"]
             print ("Estimated mpi communication time : {:.2f} %".format(mpi_samples_prop))
-    
+
     def _report_dgflops(self):
 
-        print(self.global_metrics)
-        
         if ("dflop_per_ins" in self.global_metrics )and\
            ("instructions" in self.global_metrics)and\
            ("cpu-clock" in self.global_metrics):
@@ -144,7 +189,7 @@ class LpProfiler :
             # cpu_clock is in ms and output in Gflops
             dgflops=(dflop_per_ins*nb_ins)/(cpu_clock*10**6)
             
-            print ("Estimated Glops per core : {:.2f} Gflops".format(dgflops))
+            print ("Estimated Gflops per core : {:.2f} Gflops".format(dgflops))
             
 
             
