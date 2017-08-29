@@ -84,7 +84,7 @@ class PerfSamplesProfiler :
                 dflop+=dflop_tmp*current_count
                     
         global_metrics["dflop_per_ins"]=dflop/total_sampled_ins
-        global_metrics["mpi_samples_prop"]=self.mpi_samples/total_sampled_ins
+        global_metrics["mpi_samples_prop"]=(self.mpi_samples/total_sampled_ins)*100
         
         
         return global_metrics
@@ -206,14 +206,19 @@ class PerfSamplesProfiler :
                                key=operator.itemgetter(1),reverse=True)
         sum_asm_occ=sum(asm_el[1] for asm_el in sorted_asm_list)
 
+        tot_prop=0
+
         print()
+        print("Assembly instructions representing 95% of collected samples :")
         print("-------------------------------------------------------")
         print("|   proportion  | occurence |     asm_instruction     |")
         print("-------------------------------------------------------")
+        # Print untill a total proportion of 95% of total asm instructions is reached
         for asm_el in sorted_asm_list :
             prop_asm=(asm_el[1]/sum_asm_occ)*100
+            tot_prop+=prop_asm
             print('|'+'{:.2f}%'.format(prop_asm).ljust(15)+'|'+str(asm_el[1]).ljust(11)+'|'+asm_el[0].ljust(25)+'|')
+            if(tot_prop>95):
+                break
             
         print("-------------------------------------------------------")
-
-            
