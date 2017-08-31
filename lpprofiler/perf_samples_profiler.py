@@ -108,6 +108,7 @@ class PerfSamplesProfiler(prof.Profiler) :
     def analyze(self):
         """ Standard global analyze method """
         self._analyze_perf_samples()
+        self._build_flame_graph()
 
     def report(self):
         """ Standard global reporting method """
@@ -186,7 +187,19 @@ class PerfSamplesProfiler(prof.Profiler) :
                 # Count MPI lib occurence
                 if "libmpi" in binary_path:
                     self.mpi_samples+=1
-                
+
+    def _build_flame_graph(self):
+        """ Build Flame Graph from perf samples """
+
+        for output_file in self.output_files:
+            flame_cmd="perf script -i {} | stackcollapse-perf.pl | flamegraph.pl > {}/flames.svg".format(output_file,os.path.dirname(output_file))
+
+            flame_process=Popen(flame_cmd,shell=True, stdout=PIPE,stderr=PIPE)            
+            stdout,stderr=flame_process.communicate()
+
+            if stderr:
+                print("Error generating FlameGraph : {} ".format(stderr.decode('utf-8')))
+   
         
     def get_asm_ins(self,binary_path,eip_address,start_address="0x0"):
         """ Get assembler instruction from instruction pointer and binary path """
