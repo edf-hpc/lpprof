@@ -19,32 +19,28 @@
 ############################################################################## 
 
 from subprocess import Popen,PIPE
-import sys
-import re
-import os
-import io
+import lpprofiler.profiler as prof
+import sys, re, os, io
 import operator
+
         
-class PerfSamplesProfiler :
+class PerfSamplesProfiler(prof.Profiler) :
 
-    def __init__(self,trace_file,output_files=None):
-        """ trace_file is the filename used as output to generate the profiling command. 
-        Lpprofiler can adapt the original profiling command to make it write multiple output_files
-        (ex: one per rank with srun). """
+    def __init__(self,trace_file,output_files=None,profiling_args=None):
+        """ Constructor """
         
-        self.trace_file=trace_file
+        prof.Profiler.__init__(self, trace_file,output_files,profiling_args)
 
-        if output_files:
-            self.output_files=output_files
-        else:
-            self.output_files=[self.trace_file]
-
-        # This dictionnary fasten assembly instruction decoding from address by
+        # This dictionnary fasten assembly instruction decoding from address y
         # keeping assembly instructions for adress that have already been decoded.
-        self.known_assembly_dic = {}
-        
-        self.assembly_instructions_counts = {}
 
+        if "frequency" in self.profiling_args:
+            self.frequency=self.profiling_args["frequency"]
+        else:
+            self.frequency="99"
+        
+        self.known_assembly_dic = {}
+        self.assembly_instructions_counts = {}
         self.mpi_samples=0
 
         # Store starting addresses of binaries mapped into the virtual addres space of the main process
@@ -60,29 +56,44 @@ class PerfSamplesProfiler :
 
         dflop=0
         total_sampled_ins=0
+        flop_ins=0
+        avx_ins=0
+        avx2_ins=0
+
         
         for asm_name in self.assembly_instructions_counts:
             current_count=self.assembly_instructions_counts[asm_name]
             total_sampled_ins+=current_count
             dflop_tmp=0
-
+                    
             # Handle x86_asm assembly
             # TODO handle non x86 assembly
 
-            if asm_name.endswith("pd"):
-                dflop_tmp=2
-            elif asm_name.endswith("sd"):
-                dflop_tmp=1
-            else:
-                dflop_tmp=0
+            flop_ops=('add','mul','sub','div','sqrt')
+            if any (op in asm_name for op in flop_ops):
+                if asm_name.endswith("pd"):
+                    dflop_tmp=2
+                    flop_ins+=1
+                elif asm_name.endswith("sd"):
+                    dflop_tmp=1
+                    flop_ins+=1
+                else:
+                    dflop_tmp=0
 
-            if asm_name.startswith("vfmadd"):
-                dflop+=dflop_tmp*4*current_count
-            elif asm_name.startswith("v"):
-                dflop+=dflop_tmp*2*current_count
-            else:
-                dflop+=dflop_tmp*current_count
-                    
+                if asm_name.startswith("vfmadd"):
+                    dflop+=dflop_tmp*4*current_count
+                    avx2_ins+=1
+                elif asm_name.startswith("v"):
+                    dflop+=dflop_tmp*2*current_count
+                    avx_ins+=1
+                else:
+                    dflop+=dflop_tmp*current_count
+
+        if(flop_ins):
+            global_metrics["avx_prop"]=(avx_ins/flop_ins)*100
+            global_metrics["avx2_prop"]=(avx2_ins/flop_ins)*100
+            global_metrics["vec_prop"]=((avx_ins+avx2_ins)/flop_ins)*100
+        
         global_metrics["dflop_per_ins"]=dflop/total_sampled_ins
         global_metrics["mpi_samples_prop"]=(self.mpi_samples/total_sampled_ins)*100
         
@@ -90,9 +101,9 @@ class PerfSamplesProfiler :
         return global_metrics
 
         
-    def get_profile_cmd(self,frequency="99"):
+    def get_profile_cmd(self):
         """ Assembly instructions profiling command """
-        return "perf record -g -F {} -o {} ".format(frequency,self.trace_file)
+        return "perf record -g -F {} -o {} ".format(self.frequency,self.trace_file)
 
     def analyze(self):
         """ Standard global analyze method """
@@ -116,8 +127,7 @@ class PerfSamplesProfiler :
                     binary=mapline.split(' ')[-1].rstrip()
                     m = re.match(r"^.*\[(\w+)\(",mapline)
                     start_address=m.group(1)
-                    self.binary_mapping[binary]=start_address
-                    
+                    self.binary_mapping[binary]=start_address                    
 
     def _get_perf_script_output(self,perf_options="-f ip,dso"):
         """ Call perf script and analyze profiling output files"""
@@ -150,6 +160,7 @@ class PerfSamplesProfiler :
             m=re.match(r"\s+(\w+)\s+\((.*)\)\s+",line)
             # Perf script output may contain empty lines
             if m :
+
                 eip=m.group(1)
                 binary_path=m.group(2)
                 # Address from kallsyms won't be analyzed
@@ -157,7 +168,12 @@ class PerfSamplesProfiler :
                     if (binary_path+eip) in self.known_assembly_dic:
                         asm_name=self.known_assembly_dic[binary_path+eip] 
                     else:
-                        start_address=self.binary_mapping[binary_path]
+                        start_address='0x0'
+                        if (binary_path in self.binary_mapping) and\
+                           ('.so' in binary_path or '.ko' in binary_path): 
+                            # check for .so or .ko cause main binary do not need to be vma adjusted
+                            start_address=self.binary_mapping[binary_path]
+                            
                         asm_name=self.get_asm_ins(binary_path,eip,start_address)
                         self.known_assembly_dic[binary_path+eip]=asm_name
 

@@ -16,21 +16,16 @@
 #  You should have received a copy of the GNU General Public License         #
 #  along with LPprofiler.  If not, see <http://www.gnu.org/licenses/>.       #
 #                                                                            #
-############################################################################## 
-
-import sys
-import re
-import os
+##############################################################################
+import lpprofiler.profiler as prof
+import sys, re, os
         
-class PerfHWcountersProfiler :
+class PerfHWcountersProfiler(prof.Profiler) :
 
-    def __init__(self,trace_file,output_files=None):
-        self.trace_file=trace_file
+    def __init__(self,trace_file,output_files=None,profiling_args=None):
+        """ Constructor """
         
-        if output_files:
-            self.output_files=output_files
-        else:
-            self.output_files=[self.trace_file]
+        prof.Profiler.__init__(self, trace_file,output_files,profiling_args)
 
         # Dictionnary containing count for each monitored hardware counter
         self.hwc_count_dic={}

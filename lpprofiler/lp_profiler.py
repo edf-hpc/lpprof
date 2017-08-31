@@ -28,7 +28,7 @@ import sys, os, stat, re, datetime
 
 class LpProfiler :
     
-    def __init__(self,launcher,launcher_args,binary):
+    def __init__(self,launcher,launcher_args,binary,profiling_args):
 
         # Launcher name (ex: srun)
         self.launcher=launcher
@@ -49,27 +49,25 @@ class LpProfiler :
 
         os.mkdir(self.traces_directory)
         
-        # List of profilers
+        # Build profilers
         if (self.launcher=='srun'):
-            self.profilers=[
-#                vmp.ValgrindMemoryProfiler(
-#                "./{}/val.mem_%t".format(self.traces_directory),\
- #               ["./{}/val.mem_0".format(self.traces_directory)])#,\
-                 php.PerfHWcountersProfiler(
-                 "./{}/perf.stats_%t".format(self.traces_directory),\
-                 ["./{}/perf.stats_0".format(self.traces_directory)]),\
-                 psp.PerfSamplesProfiler(
-                 "./{}/perf.data_%t".format(self.traces_directory),\
-                 ["./{}/perf.data_0".format(self.traces_directory)]),\
-            ]
-
+            trace_samples="./{}/perf.data_%t".format(self.traces_directory)
+            trace_hwc="./{}/perf.stats_%t".format(self.traces_directory)
+            output_samples=["./{}/perf.data_0".format(self.traces_directory)]
+            output_hwc=["./{}/perf.stats_0".format(self.traces_directory)]
         elif (self.launcher=='std'):
-            self.profilers=[
-                php.PerfHWcountersProfiler("./{}/perf.stats".format(self.traces_directory)),\
-                psp.PerfSamplesProfiler("./{}/perf.data".format(self.traces_directory))
-            ]
-    
-    def _std_run(self,frequency):
+            trace_samples="./{}/perf.data".format(self.traces_directory)
+            trace_hwc="./{}/perf.stats".format(self.traces_directory)
+            output_samples=None
+            output_hwc=None
+
+        self.profilers=[
+            php.PerfHWcountersProfiler(trace_hwc,output_hwc,profiling_args),\
+            psp.PerfSamplesProfiler(trace_samples,output_samples,profiling_args)
+        ]
+            
+
+    def _std_run(self):
         """ Run standard exe with perf profiling """
 
         for prof in self.profilers :
@@ -81,7 +79,7 @@ class LpProfiler :
         run_process.communicate()
 
                         
-    def _slurm_run(self,frequency):
+    def _slurm_run(self):
         """ Run slurm job with profiling """
 
         profile_cmd=""
@@ -104,14 +102,14 @@ class LpProfiler :
         srun_process.communicate()
 
     
-    def run(self,frequency="99"):
+    def run(self):
         """ Run job with profiling """
 
         # Execute profiling possibly with parallel launcher.
         if (self.launcher=='srun'):
-            self._slurm_run(frequency)
+            self._slurm_run()
         elif (self.launcher=='std'):
-            self._std_run(frequency)
+            self._std_run()
         else :
             print("Unsupported launcher: "+self.launcher)
             exit
@@ -134,6 +132,8 @@ class LpProfiler :
         self._report_inspercycle()
         print("-------------------------------------------------------")
         self._report_dgflops()
+        print("-------------------------------------------------------")
+        self._report_vectorisation()
         print("-------------------------------------------------------")
         self._report_tlbmiss_cost()
         print("-------------------------------------------------------")
@@ -169,15 +169,22 @@ class LpProfiler :
             
             print("Percentage of cycles spent in page table walking caused by TLB miss : {:.2f} ".format((nb_pagewalk_cycles*100)/nb_cycles)+'%')
 
-        
 
+    def _report_vectorisation(self):
+        if 'avx_prop' in self.global_metrics:
+            print("floatting point AVX instructions proportion {:.2f} %".format(self.global_metrics['avx_prop']))
+        if 'avx2_prop' in self.global_metrics:
+            print("floating point AVX2 instructions proportion {:.2f} %".format(self.global_metrics['avx2_prop']))
+        if 'vec_prop' in self.global_metrics:            
+            print("floatting point operations vectorisation ratio {:.2f} %".format(self.global_metrics['vec_prop']))
+            
+            
     def _report_mpi_usage(self):
         if ("mpi_samples_prop" in self.global_metrics):
             mpi_samples_prop=self.global_metrics["mpi_samples_prop"]
-            print ("Estimated mpi communication time : {:.2f} %".format(mpi_samples_prop))
+            print ("Estimated MPI communication time : {:.2f} %".format(mpi_samples_prop))
 
     def _report_dgflops(self):
-
         if ("dflop_per_ins" in self.global_metrics )and\
            ("instructions" in self.global_metrics)and\
            ("cpu-clock" in self.global_metrics):
