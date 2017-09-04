@@ -25,22 +25,35 @@ sys.path.insert(0,os.path.dirname(os.path.realpath(__file__))+"/..") # For debug
 import lpprofiler.lp_profiler as lpp
 
 
-# Manage arguments
-parser = argparse.ArgumentParser(description='LPprofiler profiling tool.',\
+def main():
+    args = parse_args()
+
+    # Build dictionnary with profiling args
+    prof_args={}
+    if args.frequency:
+        prof_args["frequency"]=args.frequency
+    
+    # Build profiler 
+    lpprof=lpp.LpProfiler(args.launcher,args.launcher_args,args.binary,prof_args)
+
+    # Run profiling
+    lpprof.run()
+
+    # Print profiling report
+    lpprof.report()
+
+    
+def parse_args():
+    """ Manage arguments """
+    parser = argparse.ArgumentParser(description='LPprofiler profiling tool.',\
                                  formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument('binary',help='binary to be profiled')
+    parser.add_argument('-launcher',help='parallel jobs launcher (ex: srun)',required=True)
+    parser.add_argument('-launcher_args',help='parallel jobs launcher arguments')
+    parser.add_argument('-frequency',help='Sampling frequency, default is 99Hz')
 
-parser.add_argument('binary',help='binary to be profiled')
-parser.add_argument('-launcher',help='parallel jobs launcher (ex: srun)',required=True)
-parser.add_argument('-launcher_args',help='parallel jobs launcher arguments')
+    return parser.parse_args()
 
-args = parser.parse_args()
-
-
-# Build profiler 
-lpprof=lpp.LpProfiler(args.launcher,args.launcher_args,args.binary)
-
-# Run profiling
-lpprof.run()
-
-# Get asm profile
-lpprof.report()
+if __name__ == '__main__':
+    main()
+        
