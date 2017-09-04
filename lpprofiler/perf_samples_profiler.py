@@ -78,9 +78,10 @@ class PerfSamplesProfiler(prof.Profiler) :
                     dflop_tmp=1
                     flop_ins+=1
                 else:
-                    dflop_tmp=0
+                    continue
 
-                if asm_name.startswith("vfmadd"):
+                if (asm_name.startswith("vfmadd") or
+                    asm_name.startswith("vfnmadd")):
                     dflop+=dflop_tmp*4*current_count
                     avx2_ins+=1
                 elif asm_name.startswith("v"):
@@ -94,6 +95,7 @@ class PerfSamplesProfiler(prof.Profiler) :
             global_metrics["avx2_prop"]=(avx2_ins/flop_ins)*100
             global_metrics["vec_prop"]=((avx_ins+avx2_ins)/flop_ins)*100
         
+
         global_metrics["dflop_per_ins"]=dflop/total_sampled_ins
         global_metrics["mpi_samples_prop"]=(self.mpi_samples/total_sampled_ins)*100
         
@@ -197,8 +199,8 @@ class PerfSamplesProfiler(prof.Profiler) :
             flame_process=Popen(flame_cmd,shell=True, stdout=PIPE,stderr=PIPE)            
             stdout,stderr=flame_process.communicate()
 
-            if stderr:
-                print("Error generating FlameGraph : {} ".format(stderr.decode('utf-8')))
+            #if stderr:
+            #    print("Error generating FlameGraph : {} ".format(stderr.decode('utf-8')))
    
         
     def get_asm_ins(self,binary_path,eip_address,start_address="0x0"):
@@ -236,9 +238,9 @@ class PerfSamplesProfiler(prof.Profiler) :
         sum_asm_occ=sum(asm_el[1] for asm_el in sorted_asm_list)
 
         tot_prop=0
-
+        prop_threshold=95
         print()
-        print("Assembly instructions representing 95% of collected samples :")
+        print("Assembly instructions samples were collected at a {}Hz frequency, here are the top {}%:".format(prop_threshold,self.frequency))
         print("-------------------------------------------------------")
         print("|   proportion  | occurence |     asm_instruction     |")
         print("-------------------------------------------------------")
@@ -247,7 +249,7 @@ class PerfSamplesProfiler(prof.Profiler) :
             prop_asm=(asm_el[1]/sum_asm_occ)*100
             tot_prop+=prop_asm
             print('|'+'{:.2f}%'.format(prop_asm).ljust(15)+'|'+str(asm_el[1]).ljust(11)+'|'+asm_el[0].ljust(25)+'|')
-            if(tot_prop>95):
+            if(tot_prop>prop_threshold):
                 break
             
         print("-------------------------------------------------------")
