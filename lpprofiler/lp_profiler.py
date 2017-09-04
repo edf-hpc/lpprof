@@ -23,7 +23,7 @@ import lpprofiler.perf_samples_profiler as psp
 import lpprofiler.perf_hwcounters_profiler as php
 import lpprofiler.valgrind_memory_profiler as vmp
 import sys, os, stat, re, datetime
-
+#from jinja2 import Template
 
 
 class LpProfiler :
@@ -44,7 +44,7 @@ class LpProfiler :
 
         self.global_metrics={}
 
-        today=datetime.date.today()
+        today=datetime.datetime.today()
         self.traces_directory="PERF_{}".format(today.isoformat())
 
         os.mkdir(self.traces_directory)
@@ -95,7 +95,7 @@ class LpProfiler :
             
 
         srun_argument="--cpu_bind=cores,verbose"
-        srun_cmd='chmod +x ./profile_cmd.sh; srun {} --multi-prog lpprofiler.conf'.format(self.launcher_args)
+        srun_cmd='chmod +x ./profile_cmd.sh; {} {} --multi-prog lpprofiler.conf'.format(self.launcher,self.launcher_args)
                         
         srun_process=Popen(srun_cmd,shell=True)
         # Wait for the command to finish
@@ -126,6 +126,7 @@ class LpProfiler :
         for prof in self.profilers :
             self.global_metrics.update(prof.global_metrics)
 
+        # Raw print (TODO use templates)
         print("-------------------------------------------------------")
         self._report_elapsedtime()
         print("-------------------------------------------------------")
@@ -140,17 +141,26 @@ class LpProfiler :
         self._report_mpi_usage()
         print("-------------------------------------------------------")
 
+        # print(_render('../templates/default.out',metrics=self.global_metrics))
 
         # Reporting that are internal to profilers and may not be stored in
         # a dictionnary.
         for prof in self.profilers :
             prof.report()
 
+        
+
+    # def _render(tpl_path, context):
+    #     path, filename = os.path.split(tpl_path)
+    #     return jinja2.Environment(
+    #         loader=jinja2.FileSystemLoader(path or './')
+    #     ).get_template(filename).render(context)
+                    
 
     def _report_elapsedtime(self):
         if ("cpu-clock" in self.global_metrics) :
             cpu_clock_s=self.global_metrics["cpu-clock"]/1000
-            print("Elasped time : {:.2f}s".format(cpu_clock_s))
+            print("Elapsed time: {:.2f}s".format(cpu_clock_s))
 
     def _report_inspercycle(self):
         """ Compute and print instruction per cycle ratio"""
@@ -158,7 +168,7 @@ class LpProfiler :
             nb_ins=self.global_metrics["instructions"]
             nb_cycles=self.global_metrics["cycles"]
 
-            print("Instructions per cycle : {:.2f}".format(nb_ins/nb_cycles))
+            print("Instructions per cycle: {:.2f}".format(nb_ins/nb_cycles))
 
     def _report_tlbmiss_cost(self):
         """ Compute and print cycles spent in the page table walking caused by TLB miss """
@@ -167,22 +177,22 @@ class LpProfiler :
             nb_pagewalk_cycles=self.global_metrics["iTLBmiss_cycles"]+self.global_metrics["iTLBmiss_cycles"]
             nb_cycles=self.global_metrics["cycles"]
             
-            print("Percentage of cycles spent in page table walking caused by TLB miss : {:.2f} ".format((nb_pagewalk_cycles*100)/nb_cycles)+'%')
+            print("Percentage of cycles spent in page table walking caused by TLB miss: {:.2f} ".format((nb_pagewalk_cycles*100)/nb_cycles)+'%')
 
 
     def _report_vectorisation(self):
         if 'avx_prop' in self.global_metrics:
-            print("floatting point AVX instructions proportion {:.2f} %".format(self.global_metrics['avx_prop']))
+            print("Floating point AVX instructions proportion: {:.2f} %".format(self.global_metrics['avx_prop']))
         if 'avx2_prop' in self.global_metrics:
-            print("floating point AVX2 instructions proportion {:.2f} %".format(self.global_metrics['avx2_prop']))
+            print("Floating point AVX2 instructions proportion: {:.2f} %".format(self.global_metrics['avx2_prop']))
         if 'vec_prop' in self.global_metrics:            
-            print("floatting point operations vectorisation ratio {:.2f} %".format(self.global_metrics['vec_prop']))
+            print("Floating point operations vectorisation ratio: {:.2f} %".format(self.global_metrics['vec_prop']))
             
             
     def _report_mpi_usage(self):
         if ("mpi_samples_prop" in self.global_metrics):
             mpi_samples_prop=self.global_metrics["mpi_samples_prop"]
-            print ("Estimated MPI communication time : {:.2f} %".format(mpi_samples_prop))
+            print ("Estimated MPI communication time: {:.2f} %".format(mpi_samples_prop))
 
     def _report_dgflops(self):
         if ("dflop_per_ins" in self.global_metrics )and\
@@ -196,7 +206,7 @@ class LpProfiler :
             # cpu_clock is in ms and output in Gflops
             dgflops=(dflop_per_ins*nb_ins)/(cpu_clock*10**6)
             
-            print ("Estimated Gflops per core : {:.2f} Gflops".format(dgflops))
+            print ("Estimated Gflops per core: {:.2f} Gflops".format(dgflops))
             
 
             
