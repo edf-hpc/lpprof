@@ -36,8 +36,11 @@ assembly instructions samples.
 
 This metric uses hardware counters that are available on modern Intel
 CPU at least from Sandy-Bridge to Kaby-Lake architectures.
-It is computed as the following ratio : (ITLB_MISSES.WALK_DURATION +
-DTLB_MISSES.WALK_DURATION)*100 / cycles
+It is computed as the following ratio :
+
+~~~
+(ITLB_MISSES.WALK_DURATION + DTLB_MISSES.WALK_DURATION)*100 / cycles
+~~~
 
 ### Estimated MPI communication time
 

@@ -22,35 +22,41 @@
 import unittest
 import io,os,sys
 sys.path.insert(0,os.path.dirname(os.path.realpath(__file__))+"/..") # For debugging purpose
-import lpprofiler.perf_samples_analyzer as psa
+import lpprofiler.perf_samples_profiler as psp
+from contextlib import redirect_stdout
 
-
-class TestSamplesAnalyzerMethods(unittest.TestCase):
+class TestSamplesProfilerMethods(unittest.TestCase):
     def test_report_assembly_usage(self):
-        psa_test=psa.PerfSamplesAnalyzer("")
+        psp_test=psp.PerfSamplesProfiler("","",{})
 
         # Fill asm count dictionnary with random data
-        psa_test._assembly_instructions_counts["vfmadd231pd"]=154
-        psa_test._assembly_instructions_counts["add"]=15
-        psa_test._assembly_instructions_counts["mov"]=43
-        psa_test._assembly_instructions_counts["callq"]=12
+        psp_test.assembly_instructions_counts["vfmadd231pd"]=154
+        psp_test.assembly_instructions_counts["add"]=15
+        psp_test.assembly_instructions_counts["mov"]=43
+        psp_test.assembly_instructions_counts["callq"]=12
 
         # Capture stdout
         capturedOutput = io.StringIO()
-        sys.stdout = capturedOutput
-        
-        psa_test.report_assembly_usage()
-        sys.stdout = sys.__stdout__
 
-        expected_result=["asm instruction : vfmadd231pd occurence: 154 proportion: 68.75%",
-                         "asm instruction : mov occurence: 43 proportion: 19.20%",
-                         "asm instruction : add occurence: 15 proportion: 6.70%",
-                         "asm instruction : callq occurence: 12 proportion: 5.36%"]
+        with redirect_stdout(capturedOutput):
+            psp_test._report_assembly_usage()
+
+
+        expected_result= "\n".join(["",
+                          "Table below shows the top 95% of assembly instructions occurence rate in collected samples, samples were collected at a 99Hz frequency:",
+                          "-------------------------------------------------------",
+                          "|   proportion  | occurence |     asm_instruction     |",
+                          "-------------------------------------------------------",
+                          "|68.75%         |154        |vfmadd231pd              |",
+                          "|19.20%         |43         |mov                      |",
+                          "|6.70%          |15         |add                      |",
+                          "|5.36%          |12         |callq                    |",
+                          "-------------------------------------------------------"])
+
+        for line,expected_line in zip(capturedOutput.getvalue(),expected_result):
+            self.assertEqual(line.strip(),expected_line.strip())
         
-        for line,expected_line in zip(capturedOutput,expected_result):
-             self.assertEqual(line,expected_line)
-        
-       # print('Captured'+capturedOutput.getvalue())
+
         
         
         

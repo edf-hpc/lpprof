@@ -29,7 +29,7 @@ except ImportError:
 if sys.version_info < (3,4):
         sys.exit('Sorry, Python < 3.4 is not supported')
 
-setup(name='lpprofiler',
+setup(name='lpprof',
       version='0.1',
       description='Lightweight Performance profiler using Linux perf_events.',
       author='EDF CCN HPC',
@@ -37,6 +37,6 @@ setup(name='lpprofiler',
       license='GPLv3',
       platforms=['GNU/Linux'],
       url='https://github.com/edf-hpc/LPprofiler',
-      scripts=['bin/lpprof','tests/tests_samples_analyzer.py'],
-      packages=['lpprofiler'],
+      scripts=['bin/lpprof','tests/tests_samples_profiler.py'],
+      packages=['lpprof'],
   )
