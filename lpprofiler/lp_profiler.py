@@ -28,13 +28,18 @@ import sys, os, stat, re, datetime
 
 class LpProfiler :
     
-    def __init__(self,launcher,launcher_args,binary,profiling_args):
+    def __init__(self,launcher,pid,rank,binary,profiling_args):
 
         # Launcher name (ex: srun)
         self.launcher=launcher
 
-        # Launcher arguments
-        self.launcher_args=launcher_args
+        # Pid and rank of the processus to profile
+        self.pid_to_profile=pid
+        self.proc_rank=rank
+
+        # If parallel rank is not given use pid as rank in output files
+        if not self.proc_rank:
+            self.proc_rank=pid
 
         # Binary to profile
         self.binary=binary
@@ -50,7 +55,7 @@ class LpProfiler :
         os.mkdir(self.traces_directory)
         
         # Build profilers
-        if (self.launcher=='srun'):
+        if (self.launcher)and('srun' in self.launcher):
             trace_samples="./{}/perf.data_%t".format(self.traces_directory)
             trace_hwc="./{}/perf.stats_%t".format(self.traces_directory)
             output_samples=["./{}/perf.data_0".format(self.traces_directory)]
@@ -60,6 +65,12 @@ class LpProfiler :
             trace_hwc="./{}/perf.stats".format(self.traces_directory)
             output_samples=None
             output_hwc=None
+        elif (self.pid_to_profile):
+            trace_samples="./{}/perf.data_{}".format(self.traces_directory,self.proc_rank)
+            trace_hwc="./{}/perf.stats_{}".format(self.traces_directory,self.proc_rank)
+            output_samples=None
+            output_hwc=None
+
 
         self.profilers=[
             php.PerfHWcountersProfiler(trace_hwc,output_hwc,profiling_args),\
@@ -70,11 +81,13 @@ class LpProfiler :
     def _std_run(self):
         """ Run standard exe with perf profiling """
 
+        run_cmd=''
+        
         for prof in self.profilers :
             run_cmd+=prof.get_profile_cmd()
         
         run_cmd+=binary
-        srun_process=Popen(run_cmd,shell=True)
+        run_process=Popen(run_cmd,shell=True)
         # Wait for the command to finish
         run_process.communicate()
 
@@ -87,30 +100,50 @@ class LpProfiler :
             profile_cmd+=prof.get_profile_cmd()
 
         slurm_ntasks=os.environ["SLURM_NTASKS"]
-        with open("./lpprofiler.conf","w") as f_conf:
-            f_conf.write("0-{} bash ./profile_cmd.sh %t".format(int(slurm_ntasks)-1))
+        with open("./{}/lpprofiler.conf".format(self.traces_directory),"w") as f_conf:
+            f_conf.write("0-{} bash ./{}/profile_cmd.sh %t".format(int(slurm_ntasks)-1,self.traces_directory))
 
-        with open("./profile_cmd.sh","w") as f_cmd:
+        with open("./{}/profile_cmd.sh".format(self.traces_directory),"w") as f_cmd:
             f_cmd.write(profile_cmd.replace('%t','$1')+self.binary)
             
 
         srun_argument="--cpu_bind=cores,verbose"
-        srun_cmd='chmod +x ./profile_cmd.sh; {} {} --multi-prog lpprofiler.conf'.format(self.launcher,self.launcher_args)
+        srun_cmd='chmod +x ./{}/profile_cmd.sh; {} --multi-prog ./{}/lpprofiler.conf'.format(self.traces_directory,self.launcher,self.traces_directory)
                         
         srun_process=Popen(srun_cmd,shell=True)
         # Wait for the command to finish
         srun_process.communicate()
+
+    def _pid_run(self):
+        """ Profile a processus given its PID"""
+
+        run_cmd=''
+        
+        for prof in self.profilers :
+            run_cmd+=prof.get_profile_cmd(pid=self.pid_to_profile)
+
+        # Use tail 
+        run_cmd+=' tail --pid={} -f /dev/null'.format(self.pid_to_profile)
+
+        print("Profiling command : {}".format(run_cmd))
+        run_process=Popen(run_cmd,shell=True)
+        
+        # Wait for the command to finish
+        run_process.communicate()
+
 
     
     def run(self):
         """ Run job with profiling """
 
         # Execute profiling possibly with parallel launcher.
-        if (self.launcher=='srun'):
+        if self.launcher and ('srun' in self.launcher):
             self._slurm_run()
         elif (self.launcher=='std'):
             self._std_run()
-        else :
+        elif (self.pid_to_profile):
+            self._pid_run()
+        else:
             print("Unsupported launcher: "+self.launcher)
             exit
 
@@ -174,7 +207,7 @@ class LpProfiler :
         """ Compute and print cycles spent in the page table walking caused by TLB miss """
         
         if ("dTLBmiss_cycles" in self.global_metrics) and ("iTLBmiss_cycles" in self.global_metrics) :
-            nb_pagewalk_cycles=self.global_metrics["iTLBmiss_cycles"]+self.global_metrics["iTLBmiss_cycles"]
+            nb_pagewalk_cycles=self.global_metrics["iTLBmiss_cycles"]+self.global_metrics["dTLBmiss_cycles"]
             nb_cycles=self.global_metrics["cycles"]
             
             print("Percentage of cycles spent in page table walking caused by TLB miss: {:.2f} ".format((nb_pagewalk_cycles*100)/nb_cycles)+'%')
@@ -182,9 +215,9 @@ class LpProfiler :
 
     def _report_vectorisation(self):
         if 'avx_prop' in self.global_metrics:
-            print("Floating point AVX instructions proportion: {:.2f} %".format(self.global_metrics['avx_prop']))
+            print("Percentage of floating point AVX instructions: {:.2f} %".format(self.global_metrics['avx_prop']))
         if 'avx2_prop' in self.global_metrics:
-            print("Floating point AVX2 instructions proportion: {:.2f} %".format(self.global_metrics['avx2_prop']))
+            print("Percentage of floating point AVX2 instructions: {:.2f} %".format(self.global_metrics['avx2_prop']))
         if 'vec_prop' in self.global_metrics:            
             print("Floating point operations vectorisation ratio: {:.2f} %".format(self.global_metrics['vec_prop']))
             

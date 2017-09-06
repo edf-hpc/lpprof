@@ -103,9 +103,12 @@ class PerfSamplesProfiler(prof.Profiler) :
         return global_metrics
 
         
-    def get_profile_cmd(self):
+    def get_profile_cmd(self,pid=None):
         """ Assembly instructions profiling command """
-        return "perf record -g -F {} -o {} ".format(self.frequency,self.trace_file)
+        if pid:
+            return "perf record -g --pid={} -F {} -o {} ".format(pid,self.frequency,self.trace_file)
+        else:
+            return "perf record -g -F {} -o {} ".format(self.frequency,self.trace_file)
 
     def analyze(self):
         """ Standard global analyze method """
@@ -240,7 +243,7 @@ class PerfSamplesProfiler(prof.Profiler) :
         tot_prop=0
         prop_threshold=95
         print()
-        print("Assembly instructions samples were collected at a {}Hz frequency, here are the top {}%:".format(prop_threshold,self.frequency))
+        print("Table below shows the top {}% of assembly instructions occurence rate in collected samples, samples were collected at a {}Hz frequency:".format(prop_threshold,self.frequency))
         print("-------------------------------------------------------")
         print("|   proportion  | occurence |     asm_instruction     |")
         print("-------------------------------------------------------")

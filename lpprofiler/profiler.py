@@ -46,7 +46,7 @@ class Profiler :
         """ Return a dictionnary with metrics that could be used outside this pofiler """
         return {}
         
-    def get_profile_cmd(self):
+    def get_profile_cmd(self,pid=None):
         """ Return profiling command """
         return ""
 

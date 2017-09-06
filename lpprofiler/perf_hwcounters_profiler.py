@@ -19,7 +19,7 @@
 ##############################################################################
 import lpprofiler.profiler as prof
 import sys, re, os
-        
+
 class PerfHWcountersProfiler(prof.Profiler) :
 
     def __init__(self,trace_file,output_files=None,profiling_args=None):
@@ -37,7 +37,7 @@ class PerfHWcountersProfiler(prof.Profiler) :
         return self.hwc_count_dic
         
     
-    def get_profile_cmd(self):
+    def get_profile_cmd(self,pid=None):
         """ Hardware counters profiling command """
         # Add a delay of 1 second to avoid counting 'perf record' launching hw counters stats.
         counters=[]
@@ -46,8 +46,10 @@ class PerfHWcountersProfiler(prof.Profiler) :
         counters.append("cpu/event=0x08,umask=0x10,name=dTLBmiss_cycles/")
         counters.append("cpu/event=0x85,umask=0x10,name=iTLBmiss_cycles/")
         counters.append("cpu-clock")
-        
-        return "perf stat -x / -e {} -D 1000 -o {} ".format(','.join(counters),self.trace_file)
+        if pid:
+            return "perf stat --pid={} -x / -e {} -D 1000 -o {} ".format(pid,','.join(counters),self.trace_file)
+        else:
+            return "perf stat -x / -e {} -D 1000 -o {} ".format(','.join(counters),self.trace_file)
 
 
     
