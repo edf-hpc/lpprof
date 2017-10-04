@@ -74,7 +74,6 @@ class PerfHWcountersProfiler(prof.Profiler) :
 
     def report(self):
         """ Standard global reporting method """
-        pass
-
+        return ''
         
             

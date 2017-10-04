@@ -95,9 +95,9 @@ class PerfSamplesProfiler(prof.Profiler) :
             global_metrics["avx2_prop"]=(avx2_ins/flop_ins)*100
             global_metrics["vec_prop"]=((avx_ins+avx2_ins)/flop_ins)*100
         
-
-        global_metrics["dflop_per_ins"]=dflop/total_sampled_ins
-        global_metrics["mpi_samples_prop"]=(self.mpi_samples/total_sampled_ins)*100
+        if total_sampled_ins:
+            global_metrics["dflop_per_ins"]=dflop/total_sampled_ins
+            global_metrics["mpi_samples_prop"]=(self.mpi_samples/total_sampled_ins)*100
         
         
         return global_metrics
@@ -113,11 +113,11 @@ class PerfSamplesProfiler(prof.Profiler) :
     def analyze(self):
         """ Standard global analyze method """
         self._analyze_perf_samples()
-        self._build_flame_graph()
+#      self._build_flame_graph()
 
     def report(self):
         """ Standard global reporting method """
-        self._report_assembly_usage()
+        return self._report_assembly_usage()
 
     def _read_mmap_table(self):
         """ Fill a dictionary with binary mappings read from perf samples """
@@ -189,9 +189,9 @@ class PerfSamplesProfiler(prof.Profiler) :
                 else:
                     self.assembly_instructions_counts[asm_name]=1
 
-                # Count MPI lib occurence
-                if "libmpi" in binary_path:
-                    self.mpi_samples+=1
+                # TODO Count MPI lib occurence
+                # if "?" in binary_path:
+                #    self.mpi_samples+=1
 
     def _build_flame_graph(self):
         """ Build Flame Graph from perf samples """
@@ -242,17 +242,21 @@ class PerfSamplesProfiler(prof.Profiler) :
 
         tot_prop=0
         prop_threshold=95
-        print()
-        print("Table below shows the top {}% of assembly instructions occurence rate in collected samples, samples were collected at a {}Hz frequency:".format(prop_threshold,self.frequency))
-        print("-------------------------------------------------------")
-        print("|   proportion  | occurence |     asm_instruction     |")
-        print("-------------------------------------------------------")
+        result=''
+        
+
+        result+="\nTable below shows the top {}% of assembly instructions occurence rate in collected samples, samples were collected at a {}Hz frequency:\n".format(prop_threshold,self.frequency)
+        result+="-------------------------------------------------------\n"
+        result+="|   proportion  | occurence |     asm_instruction     |\n"
+        result+="-------------------------------------------------------\n"
         # Print untill a total proportion of 95% of total asm instructions is reached
         for asm_el in sorted_asm_list :
             prop_asm=(asm_el[1]/sum_asm_occ)*100
             tot_prop+=prop_asm
-            print('|'+'{:.2f}%'.format(prop_asm).ljust(15)+'|'+str(asm_el[1]).ljust(11)+'|'+asm_el[0].ljust(25)+'|')
+            result+='|'+'{:.2f}%'.format(prop_asm).ljust(15)+'|'+str(asm_el[1]).ljust(11)+'|'+asm_el[0].ljust(25)+'|\n'
             if(tot_prop>prop_threshold):
                 break
             
-        print("-------------------------------------------------------")
+        result+="-------------------------------------------------------\n"
+        
+        return result
