@@ -49,25 +49,30 @@ class LpProfiler :
 
         self.global_metrics={}
 
-        today=datetime.datetime.today()
-        self.traces_directory="PERF_{}".format(today.isoformat())
 
-        os.mkdir(self.traces_directory)
+        if( 'output_dir' in profiling_args):
+            self.traces_directory=profiling_args['output_dir']
+        else:
+            today=datetime.datetime.today()
+            self.traces_directory="PERF_{}".format(today.isoformat())
+            
+        if not os.path.exists(self.traces_directory):
+            os.mkdir(self.traces_directory)
         
         # Build profilers
         if (self.launcher)and('srun' in self.launcher):
-            trace_samples="./{}/perf.data_%t".format(self.traces_directory)
-            trace_hwc="./{}/perf.stats_%t".format(self.traces_directory)
-            output_samples=["./{}/perf.data_0".format(self.traces_directory)]
-            output_hwc=["./{}/perf.stats_0".format(self.traces_directory)]
+            trace_samples="{}/perf.data_%t".format(self.traces_directory)
+            trace_hwc="{}/perf.stats_%t".format(self.traces_directory)
+            output_samples=["{}/perf.data_0".format(self.traces_directory)]
+            output_hwc=["{}/perf.stats_0".format(self.traces_directory)]
         elif (self.launcher=='std'):
-            trace_samples="./{}/perf.data".format(self.traces_directory)
-            trace_hwc="./{}/perf.stats".format(self.traces_directory)
+            trace_samples="{}/perf.data".format(self.traces_directory)
+            trace_hwc="{}/perf.stats".format(self.traces_directory)
             output_samples=None
             output_hwc=None
         elif (self.pid_to_profile):
-            trace_samples="./{}/perf.data_{}".format(self.traces_directory,self.proc_rank)
-            trace_hwc="./{}/perf.stats_{}".format(self.traces_directory,self.proc_rank)
+            trace_samples="{}/perf.data_{}".format(self.traces_directory,self.proc_rank)
+            trace_hwc="{}/perf.stats_{}".format(self.traces_directory,self.proc_rank)
             output_samples=None
             output_hwc=None
 
@@ -78,7 +83,7 @@ class LpProfiler :
         ]
             
 
-    def _std_run(self):
+    def _std_run_cmd(self):
         """ Run standard exe with perf profiling """
 
         run_cmd=''
@@ -87,12 +92,10 @@ class LpProfiler :
             run_cmd+=prof.get_profile_cmd()
         
         run_cmd+=binary
-        run_process=Popen(run_cmd,shell=True)
-        # Wait for the command to finish
-        run_process.communicate()
 
+        return run_cmd
                         
-    def _slurm_run(self):
+    def _slurm_run_cmd(self):
         """ Run slurm job with profiling """
 
         profile_cmd=""
@@ -109,12 +112,10 @@ class LpProfiler :
 
         srun_argument="--cpu_bind=cores,verbose"
         srun_cmd='chmod +x ./{}/profile_cmd.sh; {} --multi-prog ./{}/lpprofiler.conf'.format(self.traces_directory,self.launcher,self.traces_directory)
-                        
-        srun_process=Popen(srun_cmd,shell=True)
-        # Wait for the command to finish
-        srun_process.communicate()
 
-    def _pid_run(self):
+        return srun_cmd
+
+    def _pid_run_cmd(self):
         """ Profile a processus given its PID"""
 
         run_cmd=''
@@ -125,33 +126,42 @@ class LpProfiler :
         # Use tail 
         run_cmd+=' tail --pid={} -f /dev/null'.format(self.pid_to_profile)
 
-        print("Profiling command : {}".format(run_cmd))
-        run_process=Popen(run_cmd,shell=True)
+        return run_cmd
+
+
+    def _lp_log(self,msg):
+        if msg:
+            with open("{}/lpprof_log_{}".format(self.traces_directory,self.proc_rank),"a") as logf:
+                logf.write(msg)
         
-        # Wait for the command to finish
-        run_process.communicate()
-
-
-    
     def run(self):
         """ Run job with profiling """
 
+        prof_cmd=None
         # Execute profiling possibly with parallel launcher.
         if self.launcher and ('srun' in self.launcher):
-            self._slurm_run()
+            prof_cmd=self._slurm_run_cmd()
         elif (self.launcher=='std'):
-            self._std_run()
+            prof_cmd=self._std_run_cmd()
         elif (self.pid_to_profile):
-            self._pid_run()
+            prof_cmd=self._pid_run_cmd()
         else:
-            print("Unsupported launcher: "+self.launcher)
+            self._lp_log("Unsupported launcher: \n"+self.launcher)
             exit
+        
+        prof_process=Popen(prof_cmd,shell=True)
+        # Wait for the command to finish
+        prof_process.communicate()
+
+        # Log the profiling command
+        with open("{}/perf_cmd".format(self.traces_directory),"w") as pf:
+            pf.write("Profiling command : {}".format(prof_cmd))
 
         # Calls to analyze
         for prof in self.profilers :
             prof.analyze()
-            
-                
+
+
     def report(self):
         """ Print profiling reports """
                     
@@ -160,26 +170,26 @@ class LpProfiler :
             self.global_metrics.update(prof.global_metrics)
 
         # Raw print (TODO use templates)
-        print("-------------------------------------------------------")
+        self._lp_log("-------------------------------------------------------\n")
         self._report_elapsedtime()
-        print("-------------------------------------------------------")
+        self._lp_log("-------------------------------------------------------\n")
         self._report_inspercycle()
-        print("-------------------------------------------------------")
+        self._lp_log("-------------------------------------------------------\n")
         self._report_dgflops()
-        print("-------------------------------------------------------")
+        self._lp_log("-------------------------------------------------------\n")
         self._report_vectorisation()
-        print("-------------------------------------------------------")
+        self._lp_log("-------------------------------------------------------\n")
         self._report_tlbmiss_cost()
-        print("-------------------------------------------------------")
-        self._report_mpi_usage()
-        print("-------------------------------------------------------")
+        self._lp_log("-------------------------------------------------------\n")
+        #self._report_mpi_usage()
+        #self._lp_log("-------------------------------------------------------\n")
 
         # print(_render('../templates/default.out',metrics=self.global_metrics))
 
         # Reporting that are internal to profilers and may not be stored in
         # a dictionnary.
         for prof in self.profilers :
-            prof.report()
+            self._lp_log(prof.report());
 
         
 
@@ -193,7 +203,7 @@ class LpProfiler :
     def _report_elapsedtime(self):
         if ("cpu-clock" in self.global_metrics) :
             cpu_clock_s=self.global_metrics["cpu-clock"]/1000
-            print("Elapsed time: {:.2f}s".format(cpu_clock_s))
+            self._lp_log("Elapsed time: {:.2f}s \n".format(cpu_clock_s))
 
     def _report_inspercycle(self):
         """ Compute and print instruction per cycle ratio"""
@@ -201,7 +211,7 @@ class LpProfiler :
             nb_ins=self.global_metrics["instructions"]
             nb_cycles=self.global_metrics["cycles"]
 
-            print("Instructions per cycle: {:.2f}".format(nb_ins/nb_cycles))
+            self._lp_log("Instructions per cycle: {:.2f}\n".format(nb_ins/nb_cycles))
 
     def _report_tlbmiss_cost(self):
         """ Compute and print cycles spent in the page table walking caused by TLB miss """
@@ -210,22 +220,22 @@ class LpProfiler :
             nb_pagewalk_cycles=self.global_metrics["iTLBmiss_cycles"]+self.global_metrics["dTLBmiss_cycles"]
             nb_cycles=self.global_metrics["cycles"]
             
-            print("Percentage of cycles spent in page table walking caused by TLB miss: {:.2f} ".format((nb_pagewalk_cycles*100)/nb_cycles)+'%')
+            self._lp_log("Percentage of cycles spent in page table walking caused by TLB miss: {:.2f}".format((nb_pagewalk_cycles*100)/nb_cycles)+'%\n')
 
 
     def _report_vectorisation(self):
         if 'avx_prop' in self.global_metrics:
-            print("Percentage of floating point AVX instructions: {:.2f} %".format(self.global_metrics['avx_prop']))
+            self._lp_log("Percentage of floating point AVX instructions: {:.2f} %\n".format(self.global_metrics['avx_prop']))
         if 'avx2_prop' in self.global_metrics:
-            print("Percentage of floating point AVX2 instructions: {:.2f} %".format(self.global_metrics['avx2_prop']))
+            self._lp_log("Percentage of floating point AVX2 instructions: {:.2f} %\n".format(self.global_metrics['avx2_prop']))
         if 'vec_prop' in self.global_metrics:            
-            print("Floating point operations vectorisation ratio: {:.2f} %".format(self.global_metrics['vec_prop']))
+            self._lp_log("Floating point operations vectorisation ratio: {:.2f} %\n".format(self.global_metrics['vec_prop']))
             
             
     def _report_mpi_usage(self):
         if ("mpi_samples_prop" in self.global_metrics):
             mpi_samples_prop=self.global_metrics["mpi_samples_prop"]
-            print ("Estimated MPI communication time: {:.2f} %".format(mpi_samples_prop))
+            self._lp_log ("Estimated MPI communication time: {:.2f} %\n".format(mpi_samples_prop))
 
     def _report_dgflops(self):
         if ("dflop_per_ins" in self.global_metrics )and\
@@ -239,7 +249,7 @@ class LpProfiler :
             # cpu_clock is in ms and output in Gflops
             dgflops=(dflop_per_ins*nb_ins)/(cpu_clock*10**6)
             
-            print ("Estimated Gflops per core: {:.2f} Gflops".format(dgflops))
+            self._lp_log ("Estimated Gflops per core: {:.2f} Gflops\n".format(dgflops))
             
 
             
