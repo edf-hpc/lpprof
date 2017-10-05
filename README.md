@@ -42,10 +42,6 @@ It is computed as the following ratio :
 (ITLB_MISSES.WALK_DURATION + DTLB_MISSES.WALK_DURATION)*100 / cycles
 ~~~
 
-### Estimated MPI communication time
-
-Elapsed time mutltiplied by occurence rate of libmpi.so samples.
-
 
 ## Example
 
@@ -70,8 +66,6 @@ Percentage of floating point AVX2 instructions: 62.50 %
 Floating point operations vectorisation ratio: 100.00 %
 -------------------------------------------------------
 Percentage of cycles spent in page table walking caused by TLB miss: 0.03 %
--------------------------------------------------------
-Estimated MPI communication time: 5.08 %
 -------------------------------------------------------
 
 Table below shows the top 95% of assembly instructions occurence rate in collected samples, samples were collected at a 99Hz frequency:
