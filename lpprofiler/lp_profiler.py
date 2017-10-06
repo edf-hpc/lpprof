@@ -38,8 +38,10 @@ class LpProfiler :
         self.proc_rank=rank
 
         # If parallel rank is not given use pid as rank in output files
-        if not self.proc_rank:
+        if not self.proc_rank and pid:
             self.proc_rank=pid
+        else:
+            self.proc_rank="all"
 
         # Binary to profile
         self.binary=binary
