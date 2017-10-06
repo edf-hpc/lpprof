@@ -37,6 +37,6 @@ setup(name='lpprof',
       license='GPLv3',
       platforms=['GNU/Linux'],
       url='https://github.com/edf-hpc/LPprofiler',
-      scripts=['bin/lpprof','tests/tests_samples_profiler.py'],
-      packages=['lpprof'],
+      scripts=['bin/lpprof','tests/tests_samples_profiler'],
+      packages=['lpprofiler']
   )

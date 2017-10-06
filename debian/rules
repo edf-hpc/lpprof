@@ -1,0 +1,18 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@ --with python3 --buildsystem=pybuild
+
+override_dh_auto_build:
+	python3 setup.py build
+	mkdir docs/man
+	$(MAKE) -C docs/
+
+override_dh_auto_install:
+        python3 setup.py install --force --root=debian/lpprof --no-compile -O0 --install-layout=deb
+
+override_dh_clean:
+	rm -rf ubench.egg-info
+	rm -rf docs/man
+	$(MAKE) -C docs clean
+	dh_clean
