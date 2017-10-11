@@ -41,6 +41,7 @@ class PerfSamplesProfiler(prof.Profiler) :
         
         self.known_assembly_dic = {}
         self.assembly_instructions_counts = {}
+        self.symbols_counts = {}
         self.mpi_samples=0
 
         # Store starting addresses of binaries mapped into the virtual addres space of the main process
@@ -51,12 +52,14 @@ class PerfSamplesProfiler(prof.Profiler) :
         """ Return a dictionnary with metrics that could be used outside this pofiler """
         global_metrics={}
         
-        # Compute a dflop_per_ins metric
+        # Compute a dflop_per_cycle metric
         # /!\ Sqrt is counted as mul and add
 
-        dflop=0
+        dflop_sampled_max=0 # dflop per cycle per sample
         total_sampled_ins=0
         flop_ins=0
+        flop_scalar_ins=0
+        sse_pd_ins=0
         avx_ins=0
         avx2_ins=0
 
@@ -72,31 +75,42 @@ class PerfSamplesProfiler(prof.Profiler) :
             flop_ops=('add','mul','sub','div','sqrt')
             if any (op in asm_name for op in flop_ops):
                 if asm_name.endswith("pd"):
-                    dflop_tmp=2
-                    flop_ins+=1
+                    dflop_tmp=4
+                    flop_ins+=current_count
+                    sse_pd_ins+=current_count
                 elif asm_name.endswith("sd"):
-                    dflop_tmp=1
-                    flop_ins+=1
+                    dflop_tmp=2
+                    flop_scalar_ins+=current_count
+                    flop_ins+=current_count
                 else:
                     continue
 
                 if (asm_name.startswith("vfmadd") or
                     asm_name.startswith("vfnmadd")):
-                    dflop+=dflop_tmp*4*current_count
-                    avx2_ins+=1
+                    dflop_sampled_max+=dflop_tmp*4*current_count
+                    avx2_ins+=current_count
+                    if asm_name.endswith("pd"):
+                        sse_pd_ins-=current_count
+                    if asm_name.endswith("sd"):
+                        flop_scalar_ins-=current_count
                 elif asm_name.startswith("v"):
-                    dflop+=dflop_tmp*2*current_count
-                    avx_ins+=1
+                    dflop_sampled_max+=dflop_tmp*2*current_count
+                    avx_ins+=current_count
+                    if asm_name.endswith("pd"):
+                        sse_pd_ins-=current_count
+                    if asm_name.endswith("sd"):
+                        flop_scalar_ins-=current_count
                 else:
-                    dflop+=dflop_tmp*current_count
+                    dflop_sampled_max+=dflop_tmp*current_count
 
         if(flop_ins):
+            global_metrics["flop_scalar_prop"]=(flop_scalar_ins/flop_ins)*100
+            global_metrics["sse_pd_prop"]=(sse_pd_ins/flop_ins)*100
             global_metrics["avx_prop"]=(avx_ins/flop_ins)*100
             global_metrics["avx2_prop"]=(avx2_ins/flop_ins)*100
-            global_metrics["vec_prop"]=((avx_ins+avx2_ins)/flop_ins)*100
         
         if total_sampled_ins:
-            global_metrics["dflop_per_ins"]=dflop/total_sampled_ins
+            global_metrics["dflop_per_sample_max"]=dflop_sampled_max/total_sampled_ins
             global_metrics["mpi_samples_prop"]=(self.mpi_samples/total_sampled_ins)*100
         
         
@@ -117,7 +131,7 @@ class PerfSamplesProfiler(prof.Profiler) :
 
     def report(self):
         """ Standard global reporting method """
-        return self._report_assembly_usage()
+        return self._report_assembly_usage()+"\n"+self._report_symbols_usage()
 
     def _read_mmap_table(self):
         """ Fill a dictionary with binary mappings read from perf samples """
@@ -135,7 +149,7 @@ class PerfSamplesProfiler(prof.Profiler) :
                     start_address=m.group(1)
                     self.binary_mapping[binary]=start_address                    
 
-    def _get_perf_script_output(self,perf_options="-f ip,dso"):
+    def _get_perf_script_output(self,perf_options="-G -f ip,sym,dso"):
         """ Call perf script and analyze profiling output files"""
         perf_output=''
         
@@ -159,16 +173,22 @@ class PerfSamplesProfiler(prof.Profiler) :
         self._read_mmap_table()
         
         """ Get instruction pointer and dynamic shared object location from samples """        
-        perf_script_output = io.StringIO(self._get_perf_script_output("-f ip,dso"))
+        perf_script_output = io.StringIO(self._get_perf_script_output("-G -f ip,sym,dso"))
         self.mpi_samples=0
+        self.assembly_instructions_counts["unknown"]=0;
         
         for line in perf_script_output:
-            m=re.match(r"\s+(\w+)\s+\((.*)\)\s+",line)
+            #m=re.match(r"\s+(\w+)\s+\((.*)\)\s+",line)
+            m=re.match(r"\s+(\w+)\s(.*)\s\((.*)\)\s+",line)
             # Perf script output may contain empty lines
             if m :
 
                 eip=m.group(1)
-                binary_path=m.group(2)
+                sym=m.group(2)
+                binary_path=m.group(3)
+
+                
+                
                 # Address from kallsyms won't be analyzed
                 if os.path.exists(binary_path):
                     if (binary_path+eip) in self.known_assembly_dic:
@@ -182,12 +202,21 @@ class PerfSamplesProfiler(prof.Profiler) :
                             
                         asm_name=self.get_asm_ins(binary_path,eip,start_address)
                         self.known_assembly_dic[binary_path+eip]=asm_name
+                else:
+                    self.assembly_instructions_counts["unknown"]+=1
 
                 # Count instruction
                 if asm_name in self.assembly_instructions_counts:
                     self.assembly_instructions_counts[asm_name]+=1
                 else:
                     self.assembly_instructions_counts[asm_name]=1
+
+                # Count symbols
+                if sym in self.symbols_counts:
+                    self.symbols_counts[sym]+=1
+                else:
+                    self.symbols_counts[sym]=1
+
 
                 # TODO Count MPI lib occurence
                 # if "?" in binary_path:
@@ -232,7 +261,7 @@ class PerfSamplesProfiler(prof.Profiler) :
     
         return assembly_instruction
 
-                
+
     def _report_assembly_usage(self) :
         """ Print assembly instruction sorted by occurences counts in descending order """
 
@@ -260,3 +289,35 @@ class PerfSamplesProfiler(prof.Profiler) :
         result+="-------------------------------------------------------\n"
         
         return result
+
+
+    def _report_symbols_usage(self) :
+        """ Print assembly instruction sorted by occurences counts in descending order """
+
+        sorted_symbols_list=sorted(self.symbols_counts.items(),\
+                               key=operator.itemgetter(1),reverse=True)
+        sum_symbols_occ=sum(sym_el[1] for sym_el in sorted_symbols_list)
+        maxlen_symbols=max(len(sym_el[0]) for sym_el in sorted_symbols_list)
+        
+        # Avoid multilines print by limiting symbol length
+        maxlen_symbols=min(130,maxlen_symbols);
+
+        tot_prop=0
+        prop_threshold=95
+        result=''
+        result+="\nTable below shows the top {}% of symbols occurence rate in collected samples, samples were collected at a {}Hz frequency:\n".format(prop_threshold,self.frequency)
+        result+="\n".rjust(30+maxlen_symbols,'-')
+        result+="|   proportion  | occurence |           symbol        ".ljust(29+maxlen_symbols)+"|\n"
+        result+="\n".rjust(30+maxlen_symbols,'-')
+        # Print untill a total proportion of 95% of total asm instructions is reached
+        for sym_el in sorted_symbols_list :
+            prop_sym=(sym_el[1]/sum_symbols_occ)*100
+            tot_prop+=prop_sym
+            result+='|'+'{:.2f}%'.format(prop_sym).ljust(15)+'|'+str(sym_el[1]).ljust(11)+'|'+sym_el[0].ljust(maxlen_symbols)+'|\n'
+            if(tot_prop>prop_threshold):
+                break
+            
+        result+="\n".rjust(30+maxlen_symbols,'-')
+        
+        return result
+

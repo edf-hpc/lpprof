@@ -93,7 +93,7 @@ class LpProfiler :
         for prof in self.profilers :
             run_cmd+=prof.get_profile_cmd()
         
-        run_cmd+=binary
+        run_cmd+=self.binary
 
         return run_cmd
                         
@@ -172,12 +172,10 @@ class LpProfiler :
             self.global_metrics.update(prof.global_metrics)
 
         # Raw print (TODO use templates)
-        self._lp_log("-------------------------------------------------------\n")
+        self._lp_log("\n")
         self._report_elapsedtime()
         self._lp_log("-------------------------------------------------------\n")
         self._report_inspercycle()
-        self._lp_log("-------------------------------------------------------\n")
-        self._report_dgflops()
         self._lp_log("-------------------------------------------------------\n")
         self._report_vectorisation()
         self._lp_log("-------------------------------------------------------\n")
@@ -226,12 +224,23 @@ class LpProfiler :
 
 
     def _report_vectorisation(self):
+        
+        self._lp_log("Floating point instructions summary :\n\n");
+        if 'flop_scalar_prop' in self.global_metrics:
+            self._lp_log("    Percentage of floating point scalar instructions:        {:.2f} %\n".format(self.global_metrics['flop_scalar_prop']))
+        if 'sse_pd_prop' in self.global_metrics:
+            self._lp_log("    Percentage of floating point SSE packed instructions:    {:.2f} %\n".format(self.global_metrics['sse_pd_prop']))
         if 'avx_prop' in self.global_metrics:
-            self._lp_log("Percentage of floating point AVX instructions: {:.2f} %\n".format(self.global_metrics['avx_prop']))
+            self._lp_log("    Percentage of floating point AVX instructions:           {:.2f} %\n".format(self.global_metrics['avx_prop']))
         if 'avx2_prop' in self.global_metrics:
-            self._lp_log("Percentage of floating point AVX2 instructions: {:.2f} %\n".format(self.global_metrics['avx2_prop']))
-        if 'vec_prop' in self.global_metrics:            
-            self._lp_log("Floating point operations vectorisation ratio: {:.2f} %\n".format(self.global_metrics['vec_prop']))
+            self._lp_log("    Percentage of floating point AVX2 instructions:          {:.2f} %\n".format(self.global_metrics['avx2_prop']))
+        if 'dflop_per_ins' in self.global_metrics:
+            self._lp_log("    Mean number of floating point operation per instruction: {:.2f}  \n".format(self.global_metrics['dflop_per_ins']))
+
+            
+        self._lp_log("\n");
+        self._report_dgflops();
+        self._lp_log("\n");
             
             
     def _report_mpi_usage(self):
@@ -240,18 +249,24 @@ class LpProfiler :
             self._lp_log ("Estimated MPI communication time: {:.2f} %\n".format(mpi_samples_prop))
 
     def _report_dgflops(self):
-        if ("dflop_per_ins" in self.global_metrics )and\
+        if ("dflop_per_sample_max" in self.global_metrics )and\
            ("instructions" in self.global_metrics)and\
-           ("cpu-clock" in self.global_metrics):
+           ("cpu-clock" in self.global_metrics)and\
+           ("cycles" in self.global_metrics):
             
-            dflop_per_ins=self.global_metrics["dflop_per_ins"]
+            #dflop_per_ins=self.global_metrics["dflop_per_ins"]
+            dflop_per_sample_max=self.global_metrics["dflop_per_sample_max"]
             nb_ins=self.global_metrics["instructions"]
             cpu_clock=self.global_metrics["cpu-clock"]
+            cycles=self.global_metrics["cycles"]
+#            cycle_per_second=self.global_metrics["cycles"]/(cpu_clock*10**6)
 
             # cpu_clock is in ms and output in Gflops
-            dgflops=(dflop_per_ins*nb_ins)/(cpu_clock*10**6)
+ #           dgflops=(dflop_per_ins*nb_ins)/(cpu_clock*10**6)
+            dgflops=(dflop_per_sample_max*cycles)/(cpu_clock*10**6)
             
-            self._lp_log ("Estimated Gflops per core: {:.2f} Gflops\n".format(dgflops))
+            # TODO improve Gflops counting
+#            self._lp_log ("    Estimated Gflops per core: {:.2f} Gflops\n".format(dgflops))
             
 
             
