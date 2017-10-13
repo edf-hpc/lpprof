@@ -127,7 +127,10 @@ class PerfSamplesProfiler(prof.Profiler) :
     def analyze(self):
         """ Standard global analyze method """
         self._analyze_perf_samples()
-#      self._build_flame_graph()
+        
+        if "flame_graph" in self.profiling_args:
+            print("Build flame Graph")
+            self._build_flame_graph()
 
     def report(self):
         """ Standard global reporting method """
@@ -280,7 +283,7 @@ class PerfSamplesProfiler(prof.Profiler) :
         result+="-------------------------------------------------------\n"
         # Print untill a total proportion of 95% of total asm instructions is reached
         for asm_el in sorted_asm_list :
-            prop_asm=(asm_el[1]/sum_asm_occ)*100
+            prop_asm=(float(asm_el[1])/sum_asm_occ)*100
             tot_prop+=prop_asm
             result+='|'+'{:.2f}%'.format(prop_asm).ljust(15)+'|'+str(asm_el[1]).ljust(11)+'|'+asm_el[0].ljust(25)+'|\n'
             if(tot_prop>prop_threshold):
@@ -311,7 +314,7 @@ class PerfSamplesProfiler(prof.Profiler) :
         result+="\n".rjust(30+maxlen_symbols,'-')
         # Print untill a total proportion of 95% of total asm instructions is reached
         for sym_el in sorted_symbols_list :
-            prop_sym=(sym_el[1]/sum_symbols_occ)*100
+            prop_sym=(float(sym_el[1])/sum_symbols_occ)*100
             tot_prop+=prop_sym
             result+='|'+'{:.2f}%'.format(prop_sym).ljust(15)+'|'+str(sym_el[1]).ljust(11)+'|'+sym_el[0].ljust(maxlen_symbols)+'|\n'
             if(tot_prop>prop_threshold):
