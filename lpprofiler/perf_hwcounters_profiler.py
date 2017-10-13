@@ -45,11 +45,13 @@ class PerfHWcountersProfiler(prof.Profiler) :
         counters.append("cycles")
         counters.append("cpu/event=0x08,umask=0x10,name=dTLBmiss_cycles/")
         counters.append("cpu/event=0x85,umask=0x10,name=iTLBmiss_cycles/")
+#        counters.append("cpu/event=0xc6,umask=0x07,name=AVX_INST_ALL/")
+#        counters.append("cpu/event=0xc0,umask=0x02,name=INST_RETIRED_x87/")
         counters.append("cpu-clock")
         if pid:
-            return "perf stat --pid={} -x / -e {} -D 1000 -o {} ".format(pid,','.join(counters),self.trace_file)
+            return "perf stat --pid={} -x / -e {} -D 100 -o {} ".format(pid,','.join(counters),self.trace_file)
         else:
-            return "perf stat -x / -e {} -D 1000 -o {} ".format(','.join(counters),self.trace_file)
+            return "perf stat -x / -e {} -D 100 -o {} ".format(','.join(counters),self.trace_file)
 
 
     
@@ -61,7 +63,12 @@ class PerfHWcountersProfiler(prof.Profiler) :
                     splitted_line=line.rstrip().split("//")
                     if len(splitted_line)==2:
                         # Convert , to . to be sure floats are well formatted
-                        local_count=float(splitted_line[0].replace(',', '.'))
+                        try :
+                            local_count=float(splitted_line[0].replace(',', '.'))
+                        except ValueError:
+                            print("Could not convert hardware counter {} to float.".format(splitted_line[1]))
+                            print("Program may be to short (no value) or counter is not valid.")
+                            exit
                         if splitted_line[1] in self.hwc_count_dic:
                             self.hwc_count_dic[splitted_line[1]]+=local_count
                         else:
