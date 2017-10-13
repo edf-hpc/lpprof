@@ -166,7 +166,9 @@ class LpProfiler :
 
     def report(self):
         """ Print profiling reports """
-                    
+
+        print("Writing lpprof performance summary to : {}/lpprof_log_{}".format(self.traces_directory,self.proc_rank))
+        
         # Combine metrics from all profilers in a single dictionary.
         for prof in self.profilers :
             self.global_metrics.update(prof.global_metrics)
@@ -177,9 +179,9 @@ class LpProfiler :
         self._lp_log("-------------------------------------------------------\n")
         self._report_inspercycle()
         self._lp_log("-------------------------------------------------------\n")
-        self._report_vectorisation()
-        self._lp_log("-------------------------------------------------------\n")
         self._report_tlbmiss_cost()
+        self._lp_log("-------------------------------------------------------\n")
+        self._report_vectorisation()
         self._lp_log("-------------------------------------------------------\n")
         #self._report_mpi_usage()
         #self._lp_log("-------------------------------------------------------\n")
