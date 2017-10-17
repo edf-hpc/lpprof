@@ -1,5 +1,5 @@
 MAN = lpprof.1
-#MAINDOC = lpprof.html
+MAINDOC = user_guide.html
 
 all: $(MAN) ${MAINDOC}
 clean:
@@ -8,5 +8,5 @@ clean:
 %.1: source/%.md
 	pandoc -f markdown -s -t man $< -o man/$@
 
-#%.html: source/%.asc
-#        asciidoctor -a stylesheet=source/user_guide.css $< -o $@
+%.html: source/%.asc
+	asciidoctor -a stylesheet=source/user_guide.css $< -o $@
