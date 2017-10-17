@@ -136,32 +136,34 @@ class PerfSamplesProfiler(prof.Profiler) :
         """ Standard global reporting method """
         return self._report_assembly_usage()+"\n"+self._report_symbols_usage()
 
-    def _read_mmap_table(self):
+    def _read_mmap_table(self,output_file):
         """ Fill a dictionary with binary mappings read from perf samples """
-        for output_file in self.output_files:
-            perf_cmd="perf script -i {} --show-mmap-events | grep -i 'PERF\_RECORD\_MMAP'".format(output_file)
 
-            perf_process=Popen(perf_cmd,shell=True, stdout=PIPE,stderr=PIPE)            
-            stdout,stderr=perf_process.communicate()
-            raw_mmap=io.StringIO(stdout.decode('utf-8'))
+        perf_cmd="perf script -i {} --show-mmap-events | grep -i 'PERF\_RECORD\_MMAP'".format(output_file)
 
-            for mapline in raw_mmap:
-                if 'PERF_RECORD_MMAP' in mapline:
-                    binary=mapline.split(' ')[-1].rstrip()
-                    m = re.match(r"^.*\[(\w+)\(",mapline)
-                    start_address=m.group(1)
-                    self.binary_mapping[binary]=start_address                    
+        perf_process=Popen(perf_cmd,shell=True, stdout=PIPE,stderr=PIPE)            
+        stdout,stderr=perf_process.communicate()
+        raw_mmap=io.StringIO(stdout.decode('utf-8'))
 
-    def _get_perf_script_output(self,perf_options="-G -f ip,sym,dso"):
+        # Reser binary mapping
+        self.binary_mapping={}
+
+        for mapline in raw_mmap:
+            if 'PERF_RECORD_MMAP' in mapline:
+                binary=mapline.split(' ')[-1].rstrip()
+                m = re.match(r"^.*\[(\w+)\(",mapline)
+                start_address=m.group(1)
+                self.binary_mapping[binary]=start_address                    
+
+    def _get_perf_script_output(self,output_file,perf_options="-G -f ip,sym,dso"):
         """ Call perf script and analyze profiling output files"""
         perf_output=''
         
-        for output_file in self.output_files:
-            perf_cmd="perf script -i {} {}".format(output_file,perf_options)
+        perf_cmd="perf script -i {} {}".format(output_file,perf_options)
 
-            perf_process=Popen(perf_cmd,shell=True, stdout=PIPE,stderr=PIPE)
-            stdout,stderr=perf_process.communicate()
-            perf_output+=stdout.decode('utf-8')
+        perf_process=Popen(perf_cmd,shell=True, stdout=PIPE,stderr=PIPE)
+        stdout,stderr=perf_process.communicate()
+        perf_output+=stdout.decode('utf-8')
 
         return perf_output
 
@@ -169,56 +171,57 @@ class PerfSamplesProfiler(prof.Profiler) :
     def _analyze_perf_samples(self):
         """ Count each assembly instruction occurence found in perf samples and store them
         in a dictionnary."""
-        
-        asm_name="unknown"
 
-        """ Read binary mappings from samples """
-        self._read_mmap_table()
-        
-        """ Get instruction pointer and dynamic shared object location from samples """        
-        perf_script_output = io.StringIO(self._get_perf_script_output("-G -f ip,sym,dso"))
-        self.mpi_samples=0
         self.assembly_instructions_counts["unknown"]=0;
+        self.mpi_samples=0
         
-        for line in perf_script_output:
-            #m=re.match(r"\s+(\w+)\s+\((.*)\)\s+",line)
-            m=re.match(r"\s+(\w+)\s(.*)\s\((.*)\)\s+",line)
-            # Perf script output may contain empty lines
-            if m :
+        for output_file in self.output_files:
+            
+            asm_name="unknown"
+  
+            """ Read binary mappings from samples """
+            self._read_mmap_table(output_file)
 
-                eip=m.group(1)
-                sym=m.group(2)
-                binary_path=m.group(3)
+            """ Get instruction pointer and dynamic shared object location from samples """        
+            perf_script_output = io.StringIO(self._get_perf_script_output(output_file,"-G -f ip,sym,dso"))
+        
+            for line in perf_script_output:
+                #m=re.match(r"\s+(\w+)\s+\((.*)\)\s+",line)
+                m=re.match(r"\s+(\w+)\s(.*)\s\((.*)\)\s+",line)
+                # Perf script output may contain empty lines
+                if m :
 
-                
-                
-                # Address from kallsyms won't be analyzed
-                if os.path.exists(binary_path):
-                    if (binary_path+eip) in self.known_assembly_dic:
-                        asm_name=self.known_assembly_dic[binary_path+eip] 
-                    else:
-                        start_address='0x0'
-                        if (binary_path in self.binary_mapping) and\
-                           ('.so' in binary_path or '.ko' in binary_path): 
-                            # check for .so or .ko cause main binary do not need to be vma adjusted
-                            start_address=self.binary_mapping[binary_path]
+                    eip=m.group(1)
+                    sym=m.group(2)
+                    binary_path=m.group(3)
+
+                    # Address from kallsyms won't be analyzed
+                    if os.path.exists(binary_path):
+                        if (binary_path+eip) in self.known_assembly_dic:
+                            asm_name=self.known_assembly_dic[binary_path+eip] 
+                        else:
+                            start_address='0x0'
+                            if (binary_path in self.binary_mapping) and\
+                               ('.so' in binary_path or '.ko' in binary_path): 
+                                # check for .so or .ko cause main binary do not need to be vma adjusted
+                                start_address=self.binary_mapping[binary_path]
                             
-                        asm_name=self.get_asm_ins(binary_path,eip,start_address)
-                        self.known_assembly_dic[binary_path+eip]=asm_name
-                else:
-                    self.assembly_instructions_counts["unknown"]+=1
+                            asm_name=self.get_asm_ins(binary_path,eip,start_address)
+                            self.known_assembly_dic[binary_path+eip]=asm_name
+                    else:
+                        self.assembly_instructions_counts["unknown"]+=1
 
-                # Count instruction
-                if asm_name in self.assembly_instructions_counts:
-                    self.assembly_instructions_counts[asm_name]+=1
-                else:
-                    self.assembly_instructions_counts[asm_name]=1
+                    # Count instruction
+                    if asm_name in self.assembly_instructions_counts:
+                        self.assembly_instructions_counts[asm_name]+=1
+                    else:
+                        self.assembly_instructions_counts[asm_name]=1
 
-                # Count symbols
-                if sym in self.symbols_counts:
-                    self.symbols_counts[sym]+=1
-                else:
-                    self.symbols_counts[sym]=1
+                    # Count symbols
+                    if sym in self.symbols_counts:
+                        self.symbols_counts[sym]+=1
+                    else:
+                        self.symbols_counts[sym]=1
 
 
                 # TODO Count MPI lib occurence

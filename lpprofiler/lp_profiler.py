@@ -63,10 +63,16 @@ class LpProfiler :
         
         # Build profilers
         if (self.launcher)and('srun' in self.launcher):
+            slurm_ntasks=int(os.environ["SLURM_NTASKS"])
             trace_samples="{}/perf.data_%t".format(self.traces_directory)
             trace_hwc="{}/perf.stats_%t".format(self.traces_directory)
-            output_samples=["{}/perf.data_0".format(self.traces_directory)]
-            output_hwc=["{}/perf.stats_0".format(self.traces_directory)]
+            
+            output_samples=[]
+            output_hwc=[]
+            for rank in range(0,slurm_ntasks-1):
+                output_samples.append("{}/perf.data_{}".format(self.traces_directory,rank))
+                output_hwc.append("{}/perf.stats_{}".format(self.traces_directory,rank))
+            
         elif (self.launcher=='std'):
             trace_samples="{}/perf.data".format(self.traces_directory)
             trace_hwc="{}/perf.stats".format(self.traces_directory)
@@ -83,7 +89,7 @@ class LpProfiler :
             php.PerfHWcountersProfiler(trace_hwc,output_hwc,profiling_args),\
             psp.PerfSamplesProfiler(trace_samples,output_samples,profiling_args)
         ]
-            
+        
 
     def _std_run_cmd(self):
         """ Run standard exe with perf profiling """
