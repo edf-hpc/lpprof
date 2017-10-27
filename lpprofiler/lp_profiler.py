@@ -97,7 +97,6 @@ class LpProfiler :
     def _std_run_cmd(self):
         """ Run standard exe with perf profiling """
 
-        print("Std launcher !")
         run_cmd=''
         
         for prof in self.profilers :
@@ -110,7 +109,6 @@ class LpProfiler :
     def _slurm_run_cmd(self):
         """ Run slurm job with profiling """
 
-        print("Srun launcher !")
         profile_cmd=""
         for prof in self.profilers :
             profile_cmd+=prof.get_profile_cmd()
@@ -187,30 +185,42 @@ class LpProfiler :
 
         # Print hardware counters
         for metric_type in ['hwc','vectorization','asm','sym']:
-            self._lp_log("Report "+metric_type+" metrics".ljust(40))
+
+            if not self.metrics_manager.get_metric_names_sorted(metric_type):
+                continue
+            
+            title=metric_type+" metrics:"
+            self._lp_log(title+"\n")
+            self._lp_log("".ljust(len(title),"-"))
             self._lp_log("\n\n")
-            self._lp_log("metric name".ljust(40))
+            self._lp_log("  metric name".ljust(40))
             self._lp_log("min".ljust(40))
             self._lp_log("max".ljust(40))
             self._lp_log("avg".ljust(40))
             self._lp_log("\n")
-            self._lp_log("".ljust(160,"-"))
+            self._lp_log("  ".ljust(160,"-"))
             self._lp_log("\n")
-            for metric_name in self.metrics_manager.get_metric_names(metric_type):
-                self._lp_log("{} ".format(metric_name).ljust(40))
-                self._lp_log("{:.5g}".format(
-                    self.metrics_manager.get_metric_min(metric_type,metric_name)[0]).ljust(10))
+            metric_unit=''
+            if metric_type in ['asm','sym']:
+                metric_unit='%'
+            
+            for metric_name in self.metrics_manager.get_metric_names_sorted(metric_type):
+
+                
+                self._lp_log("  {} ".format(metric_name).ljust(40))
+                self._lp_log("{:.5g}{}".format(
+                    self.metrics_manager.get_metric_min(metric_type,metric_name)[0],metric_unit).ljust(10))
                 self._lp_log("    (rank: {})".format(
                     self.metrics_manager.get_metric_min(metric_type,metric_name)[1]).ljust(30))
-                self._lp_log("{:.5g}".format(
-                    self.metrics_manager.get_metric_max(metric_type,metric_name)[0]).ljust(10))
+                self._lp_log("{:.5g}{}".format(
+                    self.metrics_manager.get_metric_max(metric_type,metric_name)[0],metric_unit).ljust(10))
                 self._lp_log("    (rank: {})".format(
                     self.metrics_manager.get_metric_max(metric_type,metric_name)[1]).ljust(30))
-                self._lp_log("{:.5g}".format(
-                    self.metrics_manager.get_metric_avg(metric_type,metric_name)).ljust(40))
+                self._lp_log("{:.5g}{}".format(
+                    self.metrics_manager.get_metric_avg(metric_type,metric_name),metric_unit).ljust(40))
                 self._lp_log("\n")
 
-            self._lp_log("\n")
+            self._lp_log("\n\n")
         self._lp_log("\n")
                     
 

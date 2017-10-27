@@ -35,7 +35,6 @@ class MetricsManager:
     def remove_metric(self,metric_type,metric_name):
             
         del self.metrics_count[metric_type][metric_name]
-
         
     def _metric_exists(self,metric_type,metric_name,rank=-1):
         if not metric_type in self.metrics_count:
@@ -56,12 +55,50 @@ class MetricsManager:
         else:
             return list(self.metrics_count[metric_type].keys())
 
+    def get_metric_names_sorted(self,metric_type):
+        """ Get list of names sorted by descending count order """
+        if not metric_type in self.metrics_count:
+            return []
+        
+        metric_names=list(self.metrics_count[metric_type].keys())
+
+        return sorted(metric_names,
+                      key=lambda m_name: self.get_metric_avg(metric_type,m_name),reverse=True)
+
+        
+
     def get_metric_count(self,metric_type,metric_name,rank):
 
         if not self._metric_exists(metric_type,metric_name,rank):
             return 0
         return self.metrics_count[metric_type][metric_name][rank]
 
+    def metric_counts_to_ratios(self,metric_type,rank):
+        total_count=0.0
+        for metric_name in self.metrics_count[metric_type]:
+            total_count+=self.metrics_count[metric_type][metric_name][rank]
+            
+        for metric_name in self.metrics_count[metric_type]:
+            if total_count>0:
+                self.metrics_count[metric_type][metric_name][rank]/=total_count
+                self.metrics_count[metric_type][metric_name][rank]*=100
+
+    def del_metric_low_ratios(self,metric_type,ratio_limit):
+        """ Delete metrics with low occurence over all metrics from the same type,
+        Usefull to keep only frequent assembly instructions and symbols"""
+        metric_names_to_delete=[]
+        for metric_name in self.metrics_count[metric_type]:
+            todelete=True
+            for rank in self.metrics_count[metric_type][metric_name]:
+                if self.metrics_count[metric_type][metric_name][rank]>ratio_limit:
+                    todelete=False
+                    break
+            if todelete:
+                metric_names_to_delete.append(metric_name)
+                
+        for metric_name in metric_names_to_delete:
+            del self.metrics_count[metric_type][metric_name]
+        
     
     def get_metric_avg(self,metric_type,metric_name):
 
@@ -82,7 +119,7 @@ class MetricsManager:
         if nbrank!=0:
             self.metrics_avg[metric_type][metric_name]=avg/nbrank
         else:
-            self.metrics_avg[metric_type][metric_name]=None
+            self.metrics_avg[metric_type][metric_name]=0.0
             
         return self.metrics_avg[metric_type][metric_name]
         

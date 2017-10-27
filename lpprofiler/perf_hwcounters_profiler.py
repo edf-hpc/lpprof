@@ -86,6 +86,7 @@ class PerfHWcountersProfiler(prof.Profiler) :
                     (itlb_miss+dtlb_miss)/cycles)
                 
             rank+=1
+        self.metrics_manager.remove_metric(metric_type,'instructions')
         self.metrics_manager.remove_metric(metric_type,'dTLBmiss_cycles')
         self.metrics_manager.remove_metric(metric_type,'iTLBmiss_cycles')
 

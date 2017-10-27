@@ -134,6 +134,7 @@ class PerfSamplesProfiler(prof.Profiler) :
         """ Count each assembly instruction occurence found in perf samples and store them
         in a dictionnary."""
 
+        # Each output_file is considered as a different rank
         rank=0
         for output_file in self.output_files:
 
@@ -150,7 +151,18 @@ class PerfSamplesProfiler(prof.Profiler) :
 
             # Extract vectorization information
             self._analyze_vectorization(rank)
+
+            # Change count to ratios
+            self.metrics_manager.metric_counts_to_ratios('asm',rank)
+            self.metrics_manager.metric_counts_to_ratios('sym',rank)
+            
+            
             rank+=1
+            
+        # Remove all assembly instructions and symbols with low occurence
+        self.metrics_manager.del_metric_low_ratios('sym',1)
+        self.metrics_manager.del_metric_low_ratios('asm',1)
+            
 
 
     def _build_flame_graph(self):
@@ -170,9 +182,9 @@ class PerfSamplesProfiler(prof.Profiler) :
         """ Get assembler instruction from instruction pointer and binary path """
         
         # Objdump to dissassemble the binary matching eip
-        # objdump_cmd='objdump -d --prefix-addresses --start-address={} \
-        # --stop-address={} --adjust-vma={} {}' \
-        #     .format(hex(int(eip_address,16)),hex(int(eip_address,16)+1),hex(int(start_address,16)),binary_path)
+        #objdump_cmd='objdump -d --prefix-addresses --start-address={} \
+        #--stop-address={} --adjust-vma={} {}' \
+        #    .format(hex(int(eip_address,16)),hex(int(eip_address,16)+1),hex(int(start_address,16)),binary_path)
 
         adjusted_eip_address=int(eip_address,16)-int(start_address,16)
 
@@ -197,7 +209,6 @@ class PerfSamplesProfiler(prof.Profiler) :
         self.known_assembly_dic[binary_path+eip_address]=assembly_instruction
     
         return assembly_instruction
-
 
 
 
@@ -260,64 +271,3 @@ class PerfSamplesProfiler(prof.Profiler) :
                                             (avx_ins/flop_ins)*100)
             self.metrics_manager.add_metric(rank,metric_type,"avx2_prop",
                                             (avx2_ins/flop_ins)*100)
-
-
-    # def _report_assembly_usage(self) :
-    #     """ Print assembly instruction sorted by occurences counts in descending order """
-
-    #     sorted_asm_list=sorted(self.assembly_instructions_counts.items(),\
-    #                            key=operator.itemgetter(1),reverse=True)
-    #     sum_asm_occ=sum(asm_el[1] for asm_el in sorted_asm_list)
-
-    #     tot_prop=0
-    #     prop_threshold=95
-    #     result=''
-        
-
-    #     result+="\nTable below shows the top {}% of assembly instructions occurence rate in collected samples, samples were collected at a {}Hz frequency:\n".format(prop_threshold,self.frequency)
-    #     result+="-------------------------------------------------------\n"
-    #     result+="|   proportion  | occurence |     asm_instruction     |\n"
-    #     result+="-------------------------------------------------------\n"
-    #     # Print untill a total proportion of 95% of total asm instructions is reached
-    #     for asm_el in sorted_asm_list :
-    #         prop_asm=(float(asm_el[1])/sum_asm_occ)*100
-    #         tot_prop+=prop_asm
-    #         result+='|'+'{:.2f}%'.format(prop_asm).ljust(15)+'|'+str(asm_el[1]).ljust(11)+'|'+asm_el[0].ljust(25)+'|\n'
-    #         if(tot_prop>prop_threshold):
-    #             break
-            
-    #     result+="-------------------------------------------------------\n"
-        
-    #     return result
-
-
-    # def _report_symbols_usage(self) :
-    #     """ Print assembly instruction sorted by occurences counts in descending order """
-
-    #     sorted_symbols_list=sorted(self.symbols_counts.items(),\
-    #                            key=operator.itemgetter(1),reverse=True)
-    #     sum_symbols_occ=sum(sym_el[1] for sym_el in sorted_symbols_list)
-    #     maxlen_symbols=max(len(sym_el[0]) for sym_el in sorted_symbols_list)
-        
-    #     # Avoid multilines print by limiting symbol length
-    #     maxlen_symbols=min(130,maxlen_symbols);
-
-    #     tot_prop=0
-    #     prop_threshold=95
-    #     result=''
-    #     result+="\nTable below shows the top {}% of symbols occurence rate in collected samples, samples were collected at a {}Hz frequency:\n".format(prop_threshold,self.frequency)
-    #     result+="\n".rjust(30+maxlen_symbols,'-')
-    #     result+="|   proportion  | occurence |         symbol    ".ljust(29+maxlen_symbols)+"|\n"
-    #     result+="\n".rjust(30+maxlen_symbols,'-')
-    #     # Print untill a total proportion of 95% of total asm instructions is reached
-    #     for sym_el in sorted_symbols_list :
-    #         prop_sym=(float(sym_el[1])/sum_symbols_occ)*100
-    #         tot_prop+=prop_sym
-    #         result+='|'+'{:.2f}%'.format(prop_sym).ljust(15)+'|'+str(sym_el[1]).ljust(11)+'|'+sym_el[0].ljust(maxlen_symbols)+'|\n'
-    #         if(tot_prop>prop_threshold):
-    #             break
-            
-    #     result+="\n".rjust(30+maxlen_symbols,'-')
-        
-    #     return result
-
