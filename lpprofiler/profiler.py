@@ -19,15 +19,13 @@
 ############################################################################## 
 
 from subprocess import Popen,PIPE
-import sys
-import re
-import os
-import io
+import lpprofiler.metrics_manager as metm
+import sys,re,os,io
 import operator
         
 class Profiler :
 
-    def __init__(self,trace_file,output_files=None,profiling_args={}):
+    def __init__(self,trace_file,metrics_manager,output_files=None,profiling_args={}):
         """ trace_file is the filename used as output to generate the profiling command. 
         Lpprofiler can adapt the original profiling command to make it write multiple output_files
         (ex: one per rank with srun). """
@@ -40,6 +38,8 @@ class Profiler :
             self.output_files=[self.trace_file]
 
         self.profiling_args=profiling_args
+
+        self.metrics_manager=metrics_manager
 
     @property
     def global_metrics(self):

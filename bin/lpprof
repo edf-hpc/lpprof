@@ -40,8 +40,6 @@ def main():
     if args.o:
         prof_args["output_dir"]=args.o
 
-    print(args.flame)
-    
     if args.flame:
         prof_args["flame_graph "]=args.flame
 
@@ -69,7 +67,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='LPprofiler profiling tool.',\
                                  formatter_class=argparse.RawTextHelpFormatter)
 
-    group = parser.add_mutually_exclusive_group(required=True)
+    group = parser.add_mutually_exclusive_group(required=False)
     
     group.add_argument('-launcher',help='parallel jobs launcher (default=std)',
                        choices=["std","srun"],default='std')

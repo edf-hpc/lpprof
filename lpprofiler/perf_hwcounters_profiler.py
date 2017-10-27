@@ -18,36 +18,29 @@
 #                                                                            #
 ##############################################################################
 import lpprofiler.profiler as prof
+import lpprofiler.metrics_manager as metm
 import sys, re, os
+
 
 class PerfHWcountersProfiler(prof.Profiler) :
 
-    def __init__(self,trace_file,output_files=None,profiling_args=None):
+    def __init__(self,trace_file,metrics_manager,output_files=None,profiling_args=None):
         """ Constructor """
         
-        prof.Profiler.__init__(self, trace_file,output_files,profiling_args)
+        prof.Profiler.__init__(self, trace_file,metrics_manager,output_files,profiling_args)
 
-        # Dictionnary containing count for each monitored hardware counter
-        self.hwc_count_dic={}
-
-
-    @property
-    def global_metrics(self):
-        """ Return a dictionnary with metrics that could be used outside this pofiler """
-        return self.hwc_count_dic
-        
     
     def get_profile_cmd(self,pid=None):
         """ Hardware counters profiling command """
-        # Add a delay of 1 second to avoid counting 'perf record' launching hw counters stats.
+        # Add a delay of 100 milliseconds to avoid counting 'perf record' launching hw counters stats.
         counters=[]
         counters.append("instructions")
         counters.append("cycles")
+        counters.append("cpu-clock")
+        counters.append("task-clock")
         counters.append("cpu/event=0x08,umask=0x10,name=dTLBmiss_cycles/")
         counters.append("cpu/event=0x85,umask=0x10,name=iTLBmiss_cycles/")
-#        counters.append("cpu/event=0xc6,umask=0x07,name=AVX_INST_ALL/")
-#        counters.append("cpu/event=0xc0,umask=0x02,name=INST_RETIRED_x87/")
-        counters.append("cpu-clock")
+
         if pid:
             return "perf stat --pid={} -x / -e {} -D 100 -o {} ".format(pid,','.join(counters),self.trace_file)
         else:
@@ -57,6 +50,8 @@ class PerfHWcountersProfiler(prof.Profiler) :
     
     def analyze(self):
         """ Sum hardware counters over evry output file and compute the mean. """
+        rank=0
+        metric_type="hwc"        
         for stats_file in self.output_files:
             with open(stats_file,'r') as sf:
                 for line in sf:
@@ -69,15 +64,31 @@ class PerfHWcountersProfiler(prof.Profiler) :
                             print("Could not convert hardware counter {} to float.".format(splitted_line[1]))
                             print("Program may be to short (no value) or counter is not valid.")
                             exit
-                        if splitted_line[1] in self.hwc_count_dic:
-                            self.hwc_count_dic[splitted_line[1]]+=local_count
-                        else:
-                            self.hwc_count_dic[splitted_line[1]]=local_count
 
-        for hwcounter in self.hwc_count_dic:
-            self.hwc_count_dic[hwcounter]/=len(self.output_files)
-            
-                        
+                        metric_name=splitted_line[1]
+                        self.metrics_manager.add_metric(rank,metric_type,metric_name,local_count)
+
+            # Derivated metrics
+            ins=float(self.metrics_manager.get_metric_count(metric_type,'instructions',rank))
+            cycles=float(self.metrics_manager.get_metric_count(metric_type,'cycles',rank))
+            if ins>0 and cycles>0:
+                self.metrics_manager.add_metric(
+                    rank,metric_type,'ins-per-cycle',ins/cycles)
+            else :
+                print("ins"+str(ins)+"cycles"+str(cycles))
+
+            itlb_miss=float(self.metrics_manager.get_metric_count(metric_type,'dTLBmiss_cycles',rank))
+            dtlb_miss=float(self.metrics_manager.get_metric_count(metric_type,'iTLBmiss_cycles',rank))
+
+            if ins>0 and itlb_miss>0 and dtlb_miss>0:
+                self.metrics_manager.add_metric(
+                    rank,metric_type,'cycles spent due to TLBmiss (%)',
+                    (itlb_miss+dtlb_miss)/cycles)
+                
+            rank+=1
+        self.metrics_manager.remove_metric(metric_type,'dTLBmiss_cycles')
+        self.metrics_manager.remove_metric(metric_type,'iTLBmiss_cycles')
+
 
     def report(self):
         """ Standard global reporting method """

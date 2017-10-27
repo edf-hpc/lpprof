@@ -20,6 +20,7 @@
 
 from subprocess import Popen,PIPE
 import lpprofiler.perf_samples_profiler as psp
+import lpprofiler.metrics_manager as metm
 import lpprofiler.perf_hwcounters_profiler as php
 import lpprofiler.valgrind_memory_profiler as vmp
 import sys, os, stat, re, datetime
@@ -51,6 +52,8 @@ class LpProfiler :
 
         self.global_metrics={}
 
+        # Sample Manager ( Avg,Min,Max and count per rank)
+        self.metrics_manager=metm.MetricsManager()
 
         if( 'output_dir' in profiling_args):
             self.traces_directory=profiling_args['output_dir']
@@ -86,14 +89,15 @@ class LpProfiler :
 
 
         self.profilers=[
-            php.PerfHWcountersProfiler(trace_hwc,output_hwc,profiling_args),\
-            psp.PerfSamplesProfiler(trace_samples,output_samples,profiling_args)
+            php.PerfHWcountersProfiler(trace_hwc,self.metrics_manager,output_hwc,profiling_args),\
+            psp.PerfSamplesProfiler(trace_samples,self.metrics_manager,output_samples,profiling_args)
         ]
         
 
     def _std_run_cmd(self):
         """ Run standard exe with perf profiling """
 
+        print("Std launcher !")
         run_cmd=''
         
         for prof in self.profilers :
@@ -106,6 +110,7 @@ class LpProfiler :
     def _slurm_run_cmd(self):
         """ Run slurm job with profiling """
 
+        print("Srun launcher !")
         profile_cmd=""
         for prof in self.profilers :
             profile_cmd+=prof.get_profile_cmd()
@@ -116,10 +121,13 @@ class LpProfiler :
 
         with open("./{}/profile_cmd.sh".format(self.traces_directory),"w") as f_cmd:
             f_cmd.write(profile_cmd.replace('%t','$1')+self.binary)
-            
+
+
+        st = os.stat("./{}/profile_cmd.sh".format(self.traces_directory))
+        os.chmod("./{}/profile_cmd.sh".format(self.traces_directory),st.st_mode | stat.S_IEXEC)
 
         srun_argument="--cpu_bind=cores,verbose"
-        srun_cmd='chmod +x ./{}/profile_cmd.sh; {} --multi-prog ./{}/lpprofiler.conf'.format(self.traces_directory,self.launcher,self.traces_directory)
+        srun_cmd='{} --multi-prog ./{}/lpprofiler.conf'.format(self.launcher,self.traces_directory)
 
         return srun_cmd
 
@@ -131,7 +139,7 @@ class LpProfiler :
         for prof in self.profilers :
             run_cmd+=prof.get_profile_cmd(pid=self.pid_to_profile)
 
-        # Use tail 
+        # Use tail to stop profiling when profiled processus ends 
         run_cmd+=' tail --pid={} -f /dev/null'.format(self.pid_to_profile)
 
         return run_cmd
@@ -156,7 +164,7 @@ class LpProfiler :
         else:
             self._lp_log("Unsupported launcher: \n"+self.launcher)
             exit
-        
+
         prof_process=Popen(prof_cmd,shell=True)
         # Wait for the command to finish
         prof_process.communicate()
@@ -174,108 +182,38 @@ class LpProfiler :
         """ Print profiling reports """
 
         print("Writing lpprof performance summary to : {}/lpprof_log_{}".format(self.traces_directory,self.proc_rank))
-        
-        # Combine metrics from all profilers in a single dictionary.
-        for prof in self.profilers :
-            self.global_metrics.update(prof.global_metrics)
 
-        # Raw print (TODO use templates)
         self._lp_log("\n")
-        self._report_elapsedtime()
-        self._lp_log("-------------------------------------------------------\n")
-        self._report_inspercycle()
-        self._lp_log("-------------------------------------------------------\n")
-        self._report_tlbmiss_cost()
-        self._lp_log("-------------------------------------------------------\n")
-        self._report_vectorisation()
-        self._lp_log("-------------------------------------------------------\n")
-        #self._report_mpi_usage()
-        #self._lp_log("-------------------------------------------------------\n")
 
-        # print(_render('../templates/default.out',metrics=self.global_metrics))
+        # Print hardware counters
+        for metric_type in ['hwc','vectorization','asm','sym']:
+            self._lp_log("Report "+metric_type+" metrics".ljust(40))
+            self._lp_log("\n\n")
+            self._lp_log("metric name".ljust(40))
+            self._lp_log("min".ljust(40))
+            self._lp_log("max".ljust(40))
+            self._lp_log("avg".ljust(40))
+            self._lp_log("\n")
+            self._lp_log("".ljust(160,"-"))
+            self._lp_log("\n")
+            for metric_name in self.metrics_manager.get_metric_names(metric_type):
+                self._lp_log("{} ".format(metric_name).ljust(40))
+                self._lp_log("{:.5g}".format(
+                    self.metrics_manager.get_metric_min(metric_type,metric_name)[0]).ljust(10))
+                self._lp_log("    (rank: {})".format(
+                    self.metrics_manager.get_metric_min(metric_type,metric_name)[1]).ljust(30))
+                self._lp_log("{:.5g}".format(
+                    self.metrics_manager.get_metric_max(metric_type,metric_name)[0]).ljust(10))
+                self._lp_log("    (rank: {})".format(
+                    self.metrics_manager.get_metric_max(metric_type,metric_name)[1]).ljust(30))
+                self._lp_log("{:.5g}".format(
+                    self.metrics_manager.get_metric_avg(metric_type,metric_name)).ljust(40))
+                self._lp_log("\n")
 
-        # Reporting that are internal to profilers and may not be stored in
-        # a dictionnary.
-        for prof in self.profilers :
-            self._lp_log(prof.report());
-
-        
-
-    # def _render(tpl_path, context):
-    #     path, filename = os.path.split(tpl_path)
-    #     return jinja2.Environment(
-    #         loader=jinja2.FileSystemLoader(path or './')
-    #     ).get_template(filename).render(context)
+            self._lp_log("\n")
+        self._lp_log("\n")
                     
 
-    def _report_elapsedtime(self):
-        if ("cpu-clock" in self.global_metrics) :
-            cpu_clock_s=self.global_metrics["cpu-clock"]/1000
-            self._lp_log("Elapsed time: {:.2f}s \n".format(cpu_clock_s))
-
-    def _report_inspercycle(self):
-        """ Compute and print instruction per cycle ratio"""
-        if ("instructions" in self.global_metrics) and ("cycles" in self.global_metrics) :
-            nb_ins=self.global_metrics["instructions"]
-            nb_cycles=self.global_metrics["cycles"]
-
-            self._lp_log("Instructions per cycle: {:.2f}\n".format(nb_ins/nb_cycles))
-
-    def _report_tlbmiss_cost(self):
-        """ Compute and print cycles spent in the page table walking caused by TLB miss """
-        
-        if ("dTLBmiss_cycles" in self.global_metrics) and ("iTLBmiss_cycles" in self.global_metrics) :
-            nb_pagewalk_cycles=self.global_metrics["iTLBmiss_cycles"]+self.global_metrics["dTLBmiss_cycles"]
-            nb_cycles=self.global_metrics["cycles"]
-            
-            self._lp_log("Percentage of cycles spent in page table walking caused by TLB miss: {:.2f}".format((nb_pagewalk_cycles*100)/nb_cycles)+'%\n')
-
-
-    def _report_vectorisation(self):
-        
-        self._lp_log("Floating point instructions summary :\n\n");
-        if 'flop_scalar_prop' in self.global_metrics:
-            self._lp_log("    Percentage of floating point scalar instructions:        {:.2f} %\n".format(self.global_metrics['flop_scalar_prop']))
-        if 'sse_pd_prop' in self.global_metrics:
-            self._lp_log("    Percentage of floating point SSE packed instructions:    {:.2f} %\n".format(self.global_metrics['sse_pd_prop']))
-        if 'avx_prop' in self.global_metrics:
-            self._lp_log("    Percentage of floating point AVX instructions:           {:.2f} %\n".format(self.global_metrics['avx_prop']))
-        if 'avx2_prop' in self.global_metrics:
-            self._lp_log("    Percentage of floating point AVX2 instructions:          {:.2f} %\n".format(self.global_metrics['avx2_prop']))
-        if 'dflop_per_ins' in self.global_metrics:
-            self._lp_log("    Mean number of floating point operation per instruction: {:.2f}  \n".format(self.global_metrics['dflop_per_ins']))
-
-            
-        self._lp_log("\n");
-        self._report_dgflops();
-        self._lp_log("\n");
-            
-            
-    def _report_mpi_usage(self):
-        if ("mpi_samples_prop" in self.global_metrics):
-            mpi_samples_prop=self.global_metrics["mpi_samples_prop"]
-            self._lp_log ("Estimated MPI communication time: {:.2f} %\n".format(mpi_samples_prop))
-
-    def _report_dgflops(self):
-        if ("dflop_per_sample_max" in self.global_metrics )and\
-           ("instructions" in self.global_metrics)and\
-           ("cpu-clock" in self.global_metrics)and\
-           ("cycles" in self.global_metrics):
-            
-            #dflop_per_ins=self.global_metrics["dflop_per_ins"]
-            dflop_per_sample_max=self.global_metrics["dflop_per_sample_max"]
-            nb_ins=self.global_metrics["instructions"]
-            cpu_clock=self.global_metrics["cpu-clock"]
-            cycles=self.global_metrics["cycles"]
-#            cycle_per_second=self.global_metrics["cycles"]/(cpu_clock*10**6)
-
-            # cpu_clock is in ms and output in Gflops
- #           dgflops=(dflop_per_ins*nb_ins)/(cpu_clock*10**6)
-            dgflops=(dflop_per_sample_max*cycles)/(cpu_clock*10**6)
-            
-            # TODO improve Gflops counting
-#            self._lp_log ("    Estimated Gflops per core: {:.2f} Gflops\n".format(dgflops))
-            
 
             
         
