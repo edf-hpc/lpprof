@@ -24,13 +24,13 @@ import sys, re, os
 
 class PerfHWcountersProfiler(prof.Profiler) :
 
-    def __init__(self,trace_file,metrics_manager,output_files=None,profiling_args=None):
+    def __init__(self,metrics_manager,trace_files,output_files=None,profiling_args=None):
         """ Constructor """
         
-        prof.Profiler.__init__(self, trace_file,metrics_manager,output_files,profiling_args)
+        prof.Profiler.__init__(self,metrics_manager,trace_files,output_files,profiling_args)
 
     
-    def get_profile_cmd(self,pid=None):
+    def get_profile_cmd(self,pid=None,rank=None):
         """ Hardware counters profiling command """
         # Add a delay of 100 milliseconds to avoid counting 'perf record' launching hw counters stats.
         counters=[]
@@ -41,18 +41,24 @@ class PerfHWcountersProfiler(prof.Profiler) :
         counters.append("cpu/event=0x08,umask=0x10,name=dTLBmiss_cycles/")
         counters.append("cpu/event=0x85,umask=0x10,name=iTLBmiss_cycles/")
 
-        if pid:
-            return "perf stat --pid={} -x / -e {} -D 100 -o {} ".format(pid,','.join(counters),self.trace_file)
+        if pid and rank:
+            return "perf stat --pid={} -x / -e {} -D 100 -o {} ".format(pid,','.join(counters),self.trace_files[rank])
         else:
-            return "perf stat -x / -e {} -D 100 -o {} ".format(','.join(counters),self.trace_file)
+            return "perf stat -x / -e {} -D 100 -o {} ".format(','.join(counters),self.trace_files[0])
 
 
     
-    def analyze(self):
+    def analyze(self,ranks=None):
         """ Sum hardware counters over evry output file and compute the mean. """
-        rank=0
+        irank=0
         metric_type="hwc"        
         for stats_file in self.output_files:
+
+            if(ranks):
+                rank=ranks[irank]
+            else:
+                rank=irank
+            
             with open(stats_file,'r') as sf:
                 for line in sf:
                     splitted_line=line.rstrip().split("//")
@@ -61,8 +67,8 @@ class PerfHWcountersProfiler(prof.Profiler) :
                         try :
                             local_count=float(splitted_line[0].replace(',', '.'))
                         except ValueError:
-                            print("Could not convert hardware counter {} to float.".format(splitted_line[1]))
-                            print("Program may be to short (no value) or counter is not valid.")
+                            print("Cannot convert hardware counter {} to float.".format(splitted_line[1]))
+                            print("Program may be too short (no value) or counter is not valid.")
                             exit
 
                         metric_name=splitted_line[1]
@@ -85,14 +91,11 @@ class PerfHWcountersProfiler(prof.Profiler) :
                     rank,metric_type,'cycles spent due to TLBmiss (%)',
                     (itlb_miss+dtlb_miss)/cycles)
                 
-            rank+=1
+            irank+=1
         self.metrics_manager.remove_metric(metric_type,'instructions')
         self.metrics_manager.remove_metric(metric_type,'dTLBmiss_cycles')
         self.metrics_manager.remove_metric(metric_type,'iTLBmiss_cycles')
 
 
-    def report(self):
-        """ Standard global reporting method """
-        return ''
         
             

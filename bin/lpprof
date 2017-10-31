@@ -30,9 +30,9 @@ def main():
 
     # Build dictionnary with profiling args
     prof_args={}
-    pid=None
+    pids=None
     launcher=None
-    rank=None
+    ranks=None
     
     if args.frequency:
         prof_args["frequency"]=args.frequency
@@ -40,26 +40,47 @@ def main():
     if args.o:
         prof_args["output_dir"]=args.o
 
-    if args.flame:
-        prof_args["flame_graph "]=args.flame
-
-        
-    if args.launcher:
-        launcher=args.launcher
-    else:
-        pid=args.pid
-        
-    rank=args.rank
+#    if args.flame:
+#        prof_args["flame_graph "]=args.flame
 
     
+    if args.launcher:
+        launcher=args.launcher
+
+    if args.pids:    
+        pids=_get_list_from_args(args.pids)
+        launcher='pid'
+
+    if args.ranks:
+        ranks=_get_list_from_args(args.ranks)
+    
     # Build profiler 
-    lpprof=lpp.LpProfiler(launcher,pid,args.rank,args.binary,prof_args)
+    lpprof=lpp.LpProfiler(launcher,pids,ranks,args.binary,prof_args)
 
     # Run profiling
     lpprof.run()
 
     # Print profiling report
     lpprof.report()
+
+def _get_list_from_args(args):
+    # Transform argument:
+    # a0,a1,a2,a3....a4
+    # To list :
+    # [a0,a1,a2,a3,a3+1,a3+2,......,a4]
+    result=[]
+    
+    el_list=args.split(",")
+    for el in el_list:
+        el_sp=el.split("-")
+        if len(el_sp)==2:
+            for elnum in range(int(el_sp[0]),int(el_sp[1])+1):
+                result.append(elnum)
+        else:
+            result.append(int(el))
+            
+    return result
+    
 
     
 def parse_args():
@@ -71,13 +92,13 @@ def parse_args():
     
     group.add_argument('-launcher',help='parallel jobs launcher (default=std)',
                        choices=["std","srun"],default='std')
-    group.add_argument('-pid',help='pid of a processus to be profiled')
+    group.add_argument('-pids',help='pids of processes to be profiled')
 
 
 
-    parser.add_argument('-flame',action='store_true',
-                        help='Build a Flame Graph. For a better result compile your code with -g and -fno-omit-frame-pointer.')
-    parser.add_argument('-rank',help='rank of a processus to be profiled')
+#    parser.add_argument('-flame',action='store_true',
+#                        help='Build a Flame Graph. For a better result compile your code with -g and -fno-omit-frame-pointer.')
+    parser.add_argument('-ranks',help='list of ranks to be profiled')
     parser.add_argument('-frequency',help='Sampling frequency, default is 99Hz')
     parser.add_argument('-o',help='Output directory, default is PERF_<date>')
     parser.add_argument('binary',help='binary to be profiled',nargs='?')

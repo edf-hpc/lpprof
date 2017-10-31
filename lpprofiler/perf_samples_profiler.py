@@ -27,10 +27,10 @@ import operator
         
 class PerfSamplesProfiler(prof.Profiler) :
 
-    def __init__(self,trace_file,metrics_manager,output_files=None,profiling_args=None):
+    def __init__(self,metrics_manager,trace_files,output_files=[],profiling_args=None):
         """ Constructor """
         
-        prof.Profiler.__init__(self, trace_file,metrics_manager,output_files,profiling_args)
+        prof.Profiler.__init__(self,metrics_manager,trace_files,output_files,profiling_args)
 
         if "frequency" in self.profiling_args:
             self.frequency=self.profiling_args["frequency"]
@@ -45,24 +45,20 @@ class PerfSamplesProfiler(prof.Profiler) :
         self.binary_mapping = {}
 
         
-    def get_profile_cmd(self,pid=None):
+    def get_profile_cmd(self,pid=None,rank=None):
         """ Assembly instructions profiling command """
-        if pid:
-            return "perf record -g --pid={} -F {} -o {} ".format(pid,self.frequency,self.trace_file)
+        if pid and rank:
+            return "perf record -g --pid={} -F {} -o {} ".format(pid,self.frequency,self.trace_files[rank])
         else:
-            return "perf record -g -F {} -o {} ".format(self.frequency,self.trace_file)
+            return "perf record -g -F {} -o {} ".format(self.frequency,self.trace_files[0])
 
-    def analyze(self):
+    def analyze(self,ranks=None):
         """ Count assembly instructions and symbols """
-        self._analyze_perf_samples()
+        self._analyze_perf_samples(ranks)
                 
         if "flame_graph" in self.profiling_args:
             print("Build flame Graph")
             self._build_flame_graph()
-
-    def report(self):
-        """ Standard global reporting method """
-        pass
 
     def _read_mmap_table(self,output_file):
         """ Fill a dictionary with binary mappings read from perf samples """
@@ -130,13 +126,18 @@ class PerfSamplesProfiler(prof.Profiler) :
         
         
     
-    def _analyze_perf_samples(self):
+    def _analyze_perf_samples(self,ranks=None):
         """ Count each assembly instruction occurence found in perf samples and store them
         in a dictionnary."""
 
         # Each output_file is considered as a different rank
-        rank=0
+        irank=0
         for output_file in self.output_files:
+
+            if ranks:
+                rank=ranks[irank]
+            else:
+                rank=irank
 
             asm_name="unknown"
   
@@ -157,7 +158,7 @@ class PerfSamplesProfiler(prof.Profiler) :
             self.metrics_manager.metric_counts_to_ratios('sym',rank)
             
             
-            rank+=1
+            irank+=1
             
         # Remove all assembly instructions and symbols with low occurence
         self.metrics_manager.del_metric_low_ratios('sym',1)
@@ -181,10 +182,7 @@ class PerfSamplesProfiler(prof.Profiler) :
     def get_asm_ins(self,binary_path,eip_address,start_address="0x0"):
         """ Get assembler instruction from instruction pointer and binary path """
         
-        # Objdump to dissassemble the binary matching eip
-        #objdump_cmd='objdump -d --prefix-addresses --start-address={} \
-        #--stop-address={} --adjust-vma={} {}' \
-        #    .format(hex(int(eip_address,16)),hex(int(eip_address,16)+1),hex(int(start_address,16)),binary_path)
+        # Objdump to disassemble the binary matching eip
 
         adjusted_eip_address=int(eip_address,16)-int(start_address,16)
 

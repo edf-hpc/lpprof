@@ -25,35 +25,26 @@ import operator
         
 class Profiler :
 
-    def __init__(self,trace_file,metrics_manager,output_files=None,profiling_args={}):
+    def __init__(self,metrics_manager,trace_files,output_files=[],profiling_args={}):
         """ trace_file is the filename used as output to generate the profiling command. 
         Lpprofiler can adapt the original profiling command to make it write multiple output_files
         (ex: one per rank with srun). """
         
-        self.trace_file=trace_file
+        self.trace_files=trace_files
 
         if output_files:
             self.output_files=output_files
         else:
-            self.output_files=[self.trace_file]
+            self.output_files=self.trace_files
 
         self.profiling_args=profiling_args
 
         self.metrics_manager=metrics_manager
 
-    @property
-    def global_metrics(self):
-        """ Return a dictionnary with metrics that could be used outside this pofiler """
-        return {}
-        
-    def get_profile_cmd(self,pid=None):
+    def get_profile_cmd(self,pid=None,rank=None):
         """ Return profiling command """
         return ""
 
     def analyze(self):
         """ Standard analyze method """
-        pass
-
-    def report(self):
-        """ Standard reporting method """
         pass

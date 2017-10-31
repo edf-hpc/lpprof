@@ -29,20 +29,15 @@ import sys, os, stat, re, datetime
 
 class LpProfiler :
     
-    def __init__(self,launcher,pid,rank,binary,profiling_args):
+    def __init__(self,launcher,pids,ranks,binary,profiling_args):
 
         # Launcher name (ex: srun)
         self.launcher=launcher
 
         # Pid and rank of the processus to profile
-        self.pid_to_profile=pid
-        self.proc_rank=rank
-
-        # If parallel rank is not given use pid as rank in output files
-        if not self.proc_rank and pid:
-            self.proc_rank=pid
-        else:
-            self.proc_rank="all"
+        self.pids_to_profile=pids
+        self.ranks_to_profile=ranks
+        
 
         # Binary to profile
         self.binary=binary
@@ -65,32 +60,31 @@ class LpProfiler :
             os.mkdir(self.traces_directory)
         
         # Build profilers
+        trace_samples=[]
+        trace_hwc=[]
+        output_samples=[]
+        output_hwc=[]
         if (self.launcher)and('srun' in self.launcher):
             slurm_ntasks=int(os.environ["SLURM_NTASKS"])
-            trace_samples="{}/perf.data_%t".format(self.traces_directory)
-            trace_hwc="{}/perf.stats_%t".format(self.traces_directory)
-            
-            output_samples=[]
-            output_hwc=[]
+            trace_samples=["{}/perf.data_%t".format(self.traces_directory)]
+            trace_hwc=["{}/perf.stats_%t".format(self.traces_directory)]
             for rank in range(0,slurm_ntasks-1):
-                output_samples.append("{}/perf.data_{}".format(self.traces_directory,rank))
-                output_hwc.append("{}/perf.stats_{}".format(self.traces_directory,rank))
-            
+                if (not self.ranks_to_profile) or (rank in self.ranks_to_profile):
+                    output_samples.append("{}/perf.data_{}".format(self.traces_directory,rank))
+                    output_hwc.append("{}/perf.stats_{}".format(self.traces_directory,rank))
         elif (self.launcher=='std'):
-            trace_samples="{}/perf.data".format(self.traces_directory)
-            trace_hwc="{}/perf.stats".format(self.traces_directory)
-            output_samples=None
-            output_hwc=None
-        elif (self.pid_to_profile):
-            trace_samples="{}/perf.data_{}".format(self.traces_directory,self.proc_rank)
-            trace_hwc="{}/perf.stats_{}".format(self.traces_directory,self.proc_rank)
-            output_samples=None
-            output_hwc=None
-
+            trace_samples=["{}/perf.data".format(self.traces_directory)]
+            trace_hwc=["{}/perf.stats".format(self.traces_directory)]
+        elif (self.pids_to_profile):
+            # Ranks are attributed according to the position of the pid in the input pid list
+            for rank in range(0,len(self.pids_to_profile)):
+                if (not self.ranks_to_profile) or (rank in self.ranks_to_profile):
+                    trace_samples.append("{}/perf.data_{}".format(self.traces_directory,rank))
+                    trace_hwc.append("{}/perf.stats_{}".format(self.traces_directory,rank))
 
         self.profilers=[
-            php.PerfHWcountersProfiler(trace_hwc,self.metrics_manager,output_hwc,profiling_args),\
-            psp.PerfSamplesProfiler(trace_samples,self.metrics_manager,output_samples,profiling_args)
+            php.PerfHWcountersProfiler(self.metrics_manager,trace_hwc,output_hwc,profiling_args),\
+            psp.PerfSamplesProfiler(self.metrics_manager,trace_samples,output_samples,profiling_args)
         ]
         
 
@@ -104,8 +98,44 @@ class LpProfiler :
         
         run_cmd+=self.binary
 
-        return run_cmd
-                        
+        return [run_cmd]
+
+
+    def _append_slurm_conf(self,first_rank,last_rank,profile=False):
+
+        
+        with open("./{}/lpprofiler.conf".format(self.traces_directory),"a") as f_conf:
+            if profile:
+                f_conf.write("{}-{} bash ./{}/profile_cmd.sh %t\n".format(first_rank,last_rank,self.traces_directory))
+            else:
+                f_conf.write("{}-{} {}\n".format(first_rank,last_rank,self.binary))
+                
+    
+    def _print_slurm_conf(self,nbranks):
+        """ Print slurm multiprog conf file with """
+        # first ranks of profile and no profile intervals
+        rank_b_profile=-1 
+        rank_b_noprofile=-1
+        last_rank=nbranks-1
+        for rank in range(0,nbranks):
+            if rank in self.ranks_to_profile:
+                if rank_b_profile==-1:
+                    rank_b_profile=rank
+                    if rank_b_noprofile >= 0:
+                        self._append_slurm_conf(rank_b_noprofile,rank-1,False)
+                        rank_b_noprofile=-1
+                if rank==last_rank:
+                    self._append_slurm_conf(rank_b_profile,rank,True)
+            else:
+                if rank_b_noprofile==-1:
+                    rank_b_noprofile=rank
+                    if rank_b_profile >= 0:
+                        self._append_slurm_conf(rank_b_profile,rank-1,True)
+                        rank_b_profile=-1
+                if rank==last_rank:
+                    self._append_slurm_conf(rank_b_noprofile,rank,False)
+        
+        
     def _slurm_run_cmd(self):
         """ Run slurm job with profiling """
 
@@ -113,10 +143,13 @@ class LpProfiler :
         for prof in self.profilers :
             profile_cmd+=prof.get_profile_cmd()
 
-        slurm_ntasks=os.environ["SLURM_NTASKS"]
-        with open("./{}/lpprofiler.conf".format(self.traces_directory),"w") as f_conf:
-            f_conf.write("0-{} bash ./{}/profile_cmd.sh %t".format(int(slurm_ntasks)-1,self.traces_directory))
+        slurm_ntasks=int(os.environ["SLURM_NTASKS"])
 
+        
+        self.ranks_to_profile
+
+        self._print_slurm_conf(slurm_ntasks)
+        
         with open("./{}/profile_cmd.sh".format(self.traces_directory),"w") as f_cmd:
             f_cmd.write(profile_cmd.replace('%t','$1')+self.binary)
 
@@ -127,59 +160,72 @@ class LpProfiler :
         srun_argument="--cpu_bind=cores,verbose"
         srun_cmd='{} --multi-prog ./{}/lpprofiler.conf'.format(self.launcher,self.traces_directory)
 
-        return srun_cmd
+        return [srun_cmd]
 
     def _pid_run_cmd(self):
         """ Profile a processus given its PID"""
 
-        run_cmd=''
+        run_cmds=[]
         
-        for prof in self.profilers :
-            run_cmd+=prof.get_profile_cmd(pid=self.pid_to_profile)
-
-        # Use tail to stop profiling when profiled processus ends 
-        run_cmd+=' tail --pid={} -f /dev/null'.format(self.pid_to_profile)
-
-        return run_cmd
+        rank=0
+        for pid in self.pids_to_profile:
+            run_cmd=''
+            for prof in self.profilers :
+                if (not self.ranks_to_profile) or (rank in self.ranks_to_profile):
+                    run_cmd+=prof.get_profile_cmd(pid,rank)
+            # Use tail to stop profiling when profiled processus ends 
+            run_cmd+=' tail --pid={} -f /dev/null'.format(pid)
+            run_cmds.append(run_cmd)
+            rank+=1
+                
+        return run_cmds
 
 
     def _lp_log(self,msg):
         if msg:
-            with open("{}/lpprof_log_{}".format(self.traces_directory,self.proc_rank),"a") as logf:
+            with open("{}/LPprof_perf_report".format(self.traces_directory),"a") as logf:
                 logf.write(msg)
         
     def run(self):
         """ Run job with profiling """
 
-        prof_cmd=None
+        prof_cmds=[]
         # Execute profiling possibly with parallel launcher.
         if self.launcher and ('srun' in self.launcher):
-            prof_cmd=self._slurm_run_cmd()
+            prof_cmds=self._slurm_run_cmd()
         elif (self.launcher=='std'):
-            prof_cmd=self._std_run_cmd()
-        elif (self.pid_to_profile):
-            prof_cmd=self._pid_run_cmd()
+            prof_cmds=self._std_run_cmd()
+        elif (self.pids_to_profile):
+            prof_cmds=self._pid_run_cmd()
         else:
             self._lp_log("Unsupported launcher: \n"+self.launcher)
             exit
 
-        prof_process=Popen(prof_cmd,shell=True)
-        # Wait for the command to finish
-        prof_process.communicate()
-
+        # Launch profiling commands 
+        prof_processes=[]
+        for p_cmd in prof_cmds:
+            prof_processes.append(Popen(p_cmd,shell=True))
+        
         # Log the profiling command
-        with open("{}/perf_cmd".format(self.traces_directory),"w") as pf:
-            pf.write("Profiling command : {}".format(prof_cmd))
+        with open("{}/perf_cmds".format(self.traces_directory),"a") as pf:
+            pf.write("Profiling commands :\n")
+            for p_cmd in prof_cmds:
+                pf.write(p_cmd)
+                
+        # Wait for profiling commands to finish
+        for p_process in prof_processes:
+            p_process.communicate()
+
 
         # Calls to analyze
         for prof in self.profilers :
-            prof.analyze()
+            prof.analyze(self.ranks_to_profile)
 
 
     def report(self):
         """ Print profiling reports """
 
-        print("Writing lpprof performance summary to : {}/lpprof_log_{}".format(self.traces_directory,self.proc_rank))
+        print("Writing lpprof performance summary to : {}/LPprof_perf_report".format(self.traces_directory))
 
         self._lp_log("\n")
 
