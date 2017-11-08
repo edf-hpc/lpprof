@@ -23,7 +23,7 @@ import argparse
 import os,sys
 sys.path.insert(0,os.path.dirname(os.path.realpath(__file__))+"/..") # For debugging purpose
 import lpprofiler.lp_profiler as lpp
-
+import signal
 
 def main():
     args = parse_args()
@@ -57,11 +57,17 @@ def main():
     # Build profiler 
     lpprof=lpp.LpProfiler(launcher,pids,ranks,args.binary,prof_args)
 
+    signal.signal(signal.SIGUSR1, receive_signal)
+
     # Run profiling
     lpprof.run()
 
     # Print profiling report
     lpprof.report()
+
+def receive_signal(signum, stack):
+    perror('Python received: '+signum)
+
 
 def _get_list_from_args(args):
     # Transform argument:

@@ -90,7 +90,6 @@ class LpProfiler :
 
     def _std_run_cmd(self):
         """ Run standard exe with perf profiling """
-
         run_cmd=''
         
         for prof in self.profilers :
@@ -174,7 +173,8 @@ class LpProfiler :
                 if (not self.ranks_to_profile) or (rank in self.ranks_to_profile):
                     run_cmd+=prof.get_profile_cmd(pid,rank)
             # Use tail to stop profiling when profiled processus ends 
-            run_cmd+=' tail --pid={} -f /dev/null'.format(pid)
+            #run_cmd+=' {'+' trap SIGUSR1; tail --pid={} -f /dev/null; '.format(pid)+'}'
+            run_cmd+='bash -c "while [ ! -e ./job_done ] && [ -e /proc/{} ]; do sleep 2; done"'.format(pid)
             run_cmds.append(run_cmd)
             rank+=1
                 
@@ -210,7 +210,7 @@ class LpProfiler :
         with open("{}/perf_cmds".format(self.traces_directory),"a") as pf:
             pf.write("Profiling commands :\n")
             for p_cmd in prof_cmds:
-                pf.write(p_cmd)
+                pf.write(p_cmd+'\n')
                 
         # Wait for profiling commands to finish
         for p_process in prof_processes:
