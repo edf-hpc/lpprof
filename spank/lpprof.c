@@ -48,7 +48,12 @@ static int _lpprof_ranks_process(int val,
 				 const char *optarg,
 				 int remote)
 {
-  
+
+  rank_list=(char *) malloc(sizeof(char)*(strlen(optarg)+1));
+  strncpy(rank_list,optarg,strlen(optarg)+1);
+
+  slurm_error("optarg : %s",optarg);
+
   return(0);
 }
 
@@ -122,6 +127,15 @@ int slurm_spank_task_exit(spank_t sp, int ac, char **av)
   
   while (!(stat(proc_pid_file, &sts) == -1 && errno == ENOENT)) {
     usleep(10);
+  }
+
+  if (chdir(output_dir)){
+    slurm_error("Cannot chdir to %s : %m ",output_dir);
+    return (0);
+  }  
+
+  if (remove("job_done")){
+    slurm_error("Cannot remove job_done : %m ");
   }
 
   free(s_pid);

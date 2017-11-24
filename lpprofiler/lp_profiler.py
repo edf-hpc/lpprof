@@ -167,11 +167,17 @@ class LpProfiler :
         run_cmds=[]
         
         rank=0
+        irank=0
         for pid in self.pids_to_profile:
             run_cmd=''
             for prof in self.profilers :
                 if (not self.ranks_to_profile) or (rank in self.ranks_to_profile):
-                    run_cmd+=prof.get_profile_cmd(pid,rank)
+                    run_cmd+=prof.get_profile_cmd(pid,irank)
+            if (rank in self.ranks_to_profile):
+                irank+=1
+
+                   
+                    
             # Use tail to stop profiling when profiled processus ends 
             #run_cmd+=' {'+' trap SIGUSR1; tail --pid={} -f /dev/null; '.format(pid)+'}'
             run_cmd+='bash -c "while [ ! -e ./job_done ] && [ -e /proc/{} ]; do sleep 2; done"'.format(pid)
