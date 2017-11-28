@@ -117,7 +117,7 @@ class LpProfiler :
         rank_b_noprofile=-1
         last_rank=nbranks-1
         for rank in range(0,nbranks):
-            if rank in self.ranks_to_profile:
+            if not self.ranks_to_profile or rank in self.ranks_to_profile:
                 if rank_b_profile==-1:
                     rank_b_profile=rank
                     if rank_b_noprofile >= 0:

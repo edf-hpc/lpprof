@@ -80,8 +80,6 @@ class PerfHWcountersProfiler(prof.Profiler) :
             if ins>0 and cycles>0:
                 self.metrics_manager.add_metric(
                     rank,metric_type,'ins-per-cycle',ins/cycles)
-            else :
-                print("ins"+str(ins)+"cycles"+str(cycles))
 
             itlb_miss=float(self.metrics_manager.get_metric_count(metric_type,'dTLBmiss_cycles',rank))
             dtlb_miss=float(self.metrics_manager.get_metric_count(metric_type,'iTLBmiss_cycles',rank))
