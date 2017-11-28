@@ -54,6 +54,47 @@ int count_pid_files(){
   return count;
 }
 
+int count_ranks(const char* rank_list){
+  int istr;
+  int current_rank=-1;
+  int nbranks=0;
+  char *str1,*str2,*token,*subtoken;
+  char *saveptr1,*saveptr2;
+
+  // Use a copy of initial rank_list string for parsing
+  char* rank_listw=(char *) malloc(sizeof(char)*strlen(rank_list));
+  strncpy(rank_listw,rank_list,strlen(rank_list));
+    
+  // Count number of ranks inside formated lists like : 0,2,5-7,9  
+  for (istr = 1, str1 = rank_listw; ;istr++,str1=NULL) {
+    current_rank=-1;
+    token = strtok_r(str1,",", &saveptr1);
+    slurm_error("Tok1: %s",str1);
+    if (token == NULL)
+      break;
+    for (str2 = token; ; str2 = NULL) {
+      subtoken = strtok_r(str2,"-", &saveptr2);
+      if (subtoken == NULL){
+	slurm_error("Tok2 NULL: %s",token);
+	if (current_rank>0)
+	    nbranks+=1;
+	break;
+      }
+      if (current_rank!=-1){
+	if(atoi(subtoken)-current_rank>0)
+	  nbranks+=atoi(subtoken)-current_rank;
+	current_rank=-1;
+      }else{
+	current_rank=atoi(subtoken);
+      }
+      slurm_error("Tok2: %s",subtoken);
+    }
+  }
+
+  free(rank_listw);
+  return nbranks;
+}
+
 
 int read_pids(char** pid_list){
 

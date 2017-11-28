@@ -14,6 +14,7 @@
 #include <signal.h>
 #include <linux/limits.h>
 #include <stdio.h>
+#include <math.h>
 #include "lpprof.h"
 
 /*
@@ -27,7 +28,7 @@ static int _lpprof_freq_process(int val,
 				const char *optarg,
 				int remote)
 {
-    
+  
   if (optarg == NULL) {
     slurm_error ("frequency: invalid argument");
     return (-1);
@@ -51,8 +52,6 @@ static int _lpprof_ranks_process(int val,
 
   rank_list=(char *) malloc(sizeof(char)*(strlen(optarg)+1));
   strncpy(rank_list,optarg,strlen(optarg)+1);
-
-  slurm_error("optarg : %s",optarg);
 
   return(0);
 }
@@ -79,6 +78,11 @@ struct spank_option spank_options[] =
 
 int slurm_spank_task_exit(spank_t sp, int ac, char **av)
 {
+
+  if(frequency==FREQUENCY_NOT_SET){
+    return(0);
+  }
+
   int taskid=0;
   spank_get_item (sp, S_TASK_ID, &taskid);
 
@@ -174,6 +178,23 @@ int slurm_spank_task_init (spank_t sp, int ac, char **av)
   spank_get_item (sp, S_TASK_GLOBAL_ID, &globalid);
   spank_get_item (sp, S_JOB_TOTAL_TASK_COUNT,&nbtasks);
 
+
+  // Check writing rate
+  if(taskid==0){
+    int size_sample=30;
+    int nb_prof_ranks=nbtasks;
+    if (rank_list)
+      nb_prof_ranks=count_ranks(rank_list);
+    
+    float writing_rate=(((float)frequency*nb_prof_ranks*size_sample*60)/1000000);
+
+    if (writing_rate>100){
+      slurm_error("Collecting samples at %dHz on %d ranks would lead to write samples at %dMo per minute. Please retry with lower profiling frequency or with less ranks",frequency,nb_prof_ranks,writing_rate);
+      return(-1);
+    }
+  }
+  
+  
   // Initialize a pid_list
   char *pid_list=NULL;
   pid_list=malloc(sizeof(char)*nbtasks*64);
@@ -185,8 +206,7 @@ int slurm_spank_task_init (spank_t sp, int ac, char **av)
       slurm_error("Error with srun --lpprof spank plugin option : %m ");
       return (-1);
   }
-    
-  
+      
   // Execute lpprof profiler from first pid
   if(taskid==0){
     if(_exec_lpprof(sp,frequency,slurm_submit_dir,slurm_job_id,slurm_env_path,pid_list)){
@@ -305,6 +325,8 @@ static int _exec_lpprof(const spank_t sp,int frequency,
       char s_frequency[1024];
       snprintf(s_frequency, 1024, "%d", frequency);
       setenv("PATH", slurm_env_path, 1);
+
+
       
       if(rank_list){
 	execvp("lpprof" ,(char *[]){"lpprof","-pids",pid_list,"-frequency",s_frequency, 
