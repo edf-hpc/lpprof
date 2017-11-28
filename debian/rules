@@ -9,7 +9,8 @@ override_dh_auto_build:
 	$(MAKE) -C docs/
 
 override_dh_auto_install:
-        python3 setup.py install --force --root=debian/lpprof --no-compile -O0 --install-layout=deb
+	python3 setup.py install --force --root=debian/lpprof --no-compile -O0 --install-layout=deb
+	$(MAKE) -C spank/.
 
 override_dh_clean:
 	rm -rf ubench.egg-info

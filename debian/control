@@ -5,24 +5,22 @@ Section: devel
 Priority: extra
 Standards-Version: 3.9.6
 X-Python3-Version: >= 3.4
-Build-Depends: debhelper (>= 9),
-	       dh-python,
-	       linux-base,
-	       linux-tools,
-	       python3-all,
-	       python3-setuptools,
-	       asciidoctor,
-	       pandoc
+Build-Depends: asciidoctor,
+               debhelper (>= 9),
+               dh-python,
+               libslurm-dev,
+               linux-base,
+               linux-tools,
+               pandoc,
+               python3-all,
+               python3-setuptools
 
 Package: lpprof
 Architecture: any
-Depends: python3,
-      	 python3-jinja2,
-	 ${misc:Depends},
-Description: Lightweight performance profiler This package provides Lpprof software
-
+Depends: python3, python3-jinja2, ${misc:Depends}, ${shlibs:Depends}
+Description: This package provides Lpprof software.
 
 Package: lpprof-spank
 Architecture: any
-Depends: lpprof
-Description: Lightweight performance profiler Spank plugin This package provides Lpprof Slurm Spank plugin
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: This package provides Lpprof Slurm Spank plugin.
