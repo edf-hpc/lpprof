@@ -8,8 +8,19 @@ LPprof simplifies the use of perf with srun parallel launcher. It can also be us
 
 ## Example
 
-Profiling of High Performance Linpack:
+Profiling of High Performance Linpack at 99Hz :
 
 ~~~
-lpprof -launcher="srun --cpu_bind=cores,verbose --distribution=block:block" -frequency="99" ./xhpl
+lpprof -launcher="srun" -frequency="99" ./xhpl
+~~~
+
+
+
+## Slurm Spank plugin usage example
+
+
+Profiling of ranks 0,1,2,3,4 7 of IMB-MPI1 benchmark at 99hz :
+
+~~~
+srun --slurmd-debug=verbose --lpprof_f=99 --lpprof_r=0-4,7 ./IMB-MPI1 pingpong allreduce
 ~~~
