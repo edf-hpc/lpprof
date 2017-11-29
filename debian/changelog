@@ -1,5 +1,6 @@
-lpprof (0.1.0) unstable; urgency=medium
+lpprof (0.1.0+c9+1) calibre9; urgency=medium
 
+  * Backport calibre9
   * Initial release.
 
  -- Pierre TRESPEUCH <pierre-externe.trespeuch@edf.fr>  Thu, 05 Oct 2017 09:10:09 +0000
