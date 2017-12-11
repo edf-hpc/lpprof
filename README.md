@@ -3,7 +3,7 @@
 Lightweight Performance profiler using Linux perf_events.
 It combines *perf record* samples and *perf stat* hardware counters to provide raw and derived metrics.
 
-LPprof simplifies the use of perf with srun parallel launcher. It can also be used to profile a processus given its pid. In both cases it provides a performance summary with the following items:
+LPprof simplifies the use of perf with srun parallel launcher. It can also be used to profile a processus given its pid.
 
 
 ## Example
@@ -22,5 +22,5 @@ lpprof -launcher="srun" -frequency="99" ./xhpl
 Profiling of ranks 0,1,2,3,4 7 of IMB-MPI1 benchmark at 99hz :
 
 ~~~
-srun --slurmd-debug=verbose --lpprof_f=99 --lpprof_r=0-4,7 ./IMB-MPI1 pingpong allreduce
+srun --lpprof_f=99 --lpprof_r=0-4,7 ./IMB-MPI1 pingpong allreduce
 ~~~
