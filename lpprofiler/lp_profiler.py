@@ -173,7 +173,7 @@ class LpProfiler :
             for prof in self.profilers :
                 if (not self.ranks_to_profile) or (rank in self.ranks_to_profile):
                     run_cmd+=prof.get_profile_cmd(pid,irank)
-            if (rank in self.ranks_to_profile):
+            if (not self.ranks_to_profile) or (rank in self.ranks_to_profile):
                 irank+=1
 
                    
