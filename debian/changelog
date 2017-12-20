@@ -1,3 +1,15 @@
+lpprof (0.1.1) unstable; urgency=medium
+
+  * Add a Makefile to build spank plugin share library
+  * Add extented description to Debian package
+  * Correct Spank plugin Makefile
+  * Update documentation
+  * Correct a problem occuring when lpprof_r option is not used
+  * Correct README
+  * Correct spank plugin
+
+ -- Pierre Trespeuch <pierre-externe.trespeuch@edf.fr>  Wed, 20 Dec 2017 15:12:13 +0100
+
 lpprof (0.1.0) unstable; urgency=medium
 
   * Initial release.
