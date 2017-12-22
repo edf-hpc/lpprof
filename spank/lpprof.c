@@ -118,10 +118,11 @@ int slurm_spank_task_exit(spank_t sp, int ac, char **av)
     return (0);
   }  
 
+
   // Get lpprof pid
   char *s_pid=malloc(1024*sizeof(char));
   strcpy(s_pid,"");
-  read_pids(&s_pid);
+  read_pids(&s_pid,1);
   int lpprof_pid=atoi(s_pid);
 
   // Wait for lpprof process to end
@@ -143,7 +144,6 @@ int slurm_spank_task_exit(spank_t sp, int ac, char **av)
   }
 
   free(s_pid);
-  
   
   return(0);
 }
@@ -269,7 +269,7 @@ static int _init_lpprof_dir(int taskid,
 
   write_pid_file(pid);
 
-  // T Wait for all pids to be written
+  // Wait for all pids to be written
   int nbpid_files_written;
 
   if (taskid==0){
@@ -279,7 +279,7 @@ static int _init_lpprof_dir(int taskid,
   
   if (taskid==0){
     if (nbpid_files_written==nbtasks){
-      read_pids(pid_list);
+      read_pids(pid_list,nbtasks);
     }
   }
 
@@ -326,8 +326,10 @@ static int _exec_lpprof(const spank_t sp,int frequency,
       snprintf(s_frequency, 1024, "%d", frequency);
       setenv("PATH", slurm_env_path, 1);
 
+      // A delay is needed to avoid the case where lpprof is unable to find threads to monitor.
+      // TODO: replace sleep by a proper check.
+      sleep(1);
 
-      
       if(rank_list){
 	execvp("lpprof" ,(char *[]){"lpprof","-pids",pid_list,"-frequency",s_frequency, 
 	      "-rank",rank_list,"-o",output_dir, NULL});
@@ -358,9 +360,16 @@ static int _exec_lpprof(const spank_t sp,int frequency,
 	slurm_error("Cannot chdir to %s : %m ",pid_dir);
 	return (-1);
       }
-      
+
+      // Write lpprof process pid
       write_pid_file(lpprof_pid);
-    
+
+      if (chdir(slurm_submit_dir)){
+	slurm_error("Cannot chdir to %s : %m ",pid_dir);
+	return (-1);
+      }
+
+
       return(0);
     }
   }

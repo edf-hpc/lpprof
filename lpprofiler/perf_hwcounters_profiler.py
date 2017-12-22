@@ -30,7 +30,7 @@ class PerfHWcountersProfiler(prof.Profiler) :
         prof.Profiler.__init__(self,metrics_manager,trace_files,output_files,profiling_args)
 
     
-    def get_profile_cmd(self,pid=None,rank=None):
+    def get_profile_cmd(self,pid=-1,rank=-1):
         """ Hardware counters profiling command """
         # Add a delay of 100 milliseconds to avoid counting 'perf record' launching hw counters stats.
         counters=[]
@@ -41,7 +41,7 @@ class PerfHWcountersProfiler(prof.Profiler) :
         counters.append("cpu/event=0x08,umask=0x10,name=dTLBmiss_cycles/")
         counters.append("cpu/event=0x85,umask=0x10,name=iTLBmiss_cycles/")
 
-        if pid and rank:
+        if pid>=0 and rank>=0:
             return "perf stat --pid={} -x / -e {} -D 100 -o {} ".format(pid,','.join(counters),self.trace_files[rank])
         else:
             return "perf stat -x / -e {} -D 100 -o {} ".format(','.join(counters),self.trace_files[0])

@@ -45,9 +45,9 @@ class PerfSamplesProfiler(prof.Profiler) :
         self.binary_mapping = {}
 
         
-    def get_profile_cmd(self,pid=None,rank=None):
+    def get_profile_cmd(self,pid=-1,rank=-1):
         """ Assembly instructions profiling command """
-        if pid and rank:
+        if pid>=0 and rank>=0:
             return "perf record -g --pid={} -F {} -o {} ".format(pid,self.frequency,self.trace_files[rank])
         else:
             return "perf record -g -F {} -o {} ".format(self.frequency,self.trace_files[0])

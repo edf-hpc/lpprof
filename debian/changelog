@@ -1,8 +1,15 @@
-lpprof (0.1.1+c9+1) calibre9; urgency=medium
+lpprof (0.1.2+c9+1) calibre9; urgency=medium
 
-  * Backport calibre9
+  * New Debian release 0.1.2+c9+1
 
- -- Pierre Trespeuch <pierre-externe.trespeuch@edf.fr>  Wed, 20 Dec 2017 15:17:33 +0100
+ -- Pierre Trespeuch <pierre-externe.trespeuch@edf.fr>  Fri, 22 Dec 2017 09:38:27 +0100
+
+lpprof (0.1.2) unstable; urgency=medium
+
+  * Correct perf pids driven commands that weren't monitoring the first pid as they should
+  * Correct spank plugin, sort pids and make sure to get back in job submission directory
+
+ -- Pierre Trespeuch <pierre-externe.trespeuch@edf.fr>  Fri, 22 Dec 2017 09:36:26 +0100
 
 lpprof (0.1.1) unstable; urgency=medium
 
