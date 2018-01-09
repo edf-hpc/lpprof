@@ -253,7 +253,7 @@ class LpProfiler :
             self._lp_log("  ".ljust(160,"-"))
             self._lp_log("\n")
             metric_unit=''
-            if metric_type in ['asm','sym']:
+            if metric_type in ['asm','sym','vectorization']:
                 metric_unit='%'
             
             for metric_name in self.metrics_manager.get_metric_names_sorted(metric_type):
