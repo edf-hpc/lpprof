@@ -242,10 +242,12 @@ static int _init_lpprof_dir(int taskid,
   }
   struct stat st = {0};
   // Make lpprof outputdir if it does not already exist
-  if (stat(output_dir, &st) == -1) {
+  if ((stat(output_dir, &st) == -1)) {
     if (mkdir(output_dir,S_IXUSR|S_IWUSR|S_IRUSR)){
-      slurm_error("Cannot mkdir %s : %m ",output_dir);
-      return (-1);
+      if(errno!=EEXIST){
+	slurm_error("Cannot mkdir %s : %m ",output_dir);
+	return (-1);
+      }
     }
   }
   if (chdir(output_dir)){
@@ -254,10 +256,12 @@ static int _init_lpprof_dir(int taskid,
   }
 
   // Make lpprof pid dir
-  if (stat(pid_dir, &st) == -1) {
+  if ((stat(pid_dir, &st) == -1)) {
     if (mkdir(pid_dir,S_IXUSR|S_IWUSR|S_IRUSR)){
-      slurm_error("Cannot mkdir %s : %m ",pid_dir);
-      return (-1);
+      if(errno!=EEXIST){
+	slurm_error("Cannot mkdir %s : %m ",pid_dir);
+	return (-1);
+      }
     }
   }
   
