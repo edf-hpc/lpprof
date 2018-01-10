@@ -154,11 +154,18 @@ class PerfSamplesProfiler(prof.Profiler) :
             self._analyze_vectorization(rank)
 
             # Change count to ratios
+            #self.metrics_manager.metric_counts_to_ratios('asm',rank)
+            #self.metrics_manager.metric_counts_to_ratios('sym',rank)
+            
+            
+            irank+=1
+
+        for rank in ranks:
+            # Change count to ratios
             self.metrics_manager.metric_counts_to_ratios('asm',rank)
             self.metrics_manager.metric_counts_to_ratios('sym',rank)
             
             
-            irank+=1
             
         # Remove all assembly instructions and symbols with low occurence
         self.metrics_manager.del_metric_low_ratios('sym',1)
