@@ -288,7 +288,7 @@ static int _init_lpprof_dir(int taskid,
   }
 
   // Change current dir back to output dir
-  if (chdir(output_dir)){
+  if (chdir(slurm_submit_dir)){
     slurm_error("Cannot chdir to %s : %m ",output_dir);
     return (-1);
   }
