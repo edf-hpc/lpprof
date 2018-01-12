@@ -29,7 +29,7 @@ Frequency of perf sampling.
 List of ranks to profile (ex: --ranks 0-7,12 to profile ranks 0 to 7 and rank 12).
 
 "-o"
-Output directory, default is PERF_<date>'
+Output directory, default is PERF_<date>.
 
 
 # SEE ALSO
