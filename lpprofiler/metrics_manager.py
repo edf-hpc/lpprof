@@ -33,8 +33,9 @@ class MetricsManager:
         self.metrics_count[metric_type][metric_name][rank]+=count
 
     def remove_metric(self,metric_type,metric_name):
-            
-        del self.metrics_count[metric_type][metric_name]
+        if metric_type in self.metrics_count:
+            if metric_name in self.metrics_count[metric_type]:
+                del self.metrics_count[metric_type][metric_name]
         
     def _metric_exists(self,metric_type,metric_name,rank=-1):
         if not metric_type in self.metrics_count:

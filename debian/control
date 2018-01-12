@@ -24,5 +24,5 @@ Architecture: any
 Depends: slurm-client, linux-base, linux-tools, ${misc:Depends}, ${shlibs:Depends}
 Description: This package provides Lpprof Slurm Spank plugin.
 	     This plugin makes it easy to use Lpprof with SLURM
-	     scheduler by providing -lpprof_f and -lpprof_r srun
+	     scheduler by providing --lpprof_f and --lpprof_r srun
 	     arguments.
