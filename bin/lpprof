@@ -109,7 +109,10 @@ def parse_args():
     parser.add_argument('-o',help='Output directory, default is PERF_<date>')
     parser.add_argument('binary',help='binary to be profiled',nargs='?')
 
-
+    if len(sys.argv)==1:
+        parser.print_help()
+        sys.exit(1)
+                
     return parser.parse_args()
 
 if __name__ == '__main__':
