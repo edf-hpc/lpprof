@@ -335,10 +335,10 @@ static int _exec_lpprof(const spank_t sp,int frequency,
       sleep(1);
 
       if(rank_list){
-	execvp("lpprof" ,(char *[]){"lpprof","-pids",pid_list,"-frequency",s_frequency, 
-	      "-rank",rank_list,"-o",output_dir, NULL});
+	execvp("lpprof" ,(char *[]){"lpprof","--pids",pid_list,"--frequency",s_frequency, 
+	      "--ranks",rank_list,"-o",output_dir, NULL});
       }else{
-	execvp("lpprof" ,(char *[]){"lpprof","-pids",pid_list,"-frequency",s_frequency, 
+	execvp("lpprof" ,(char *[]){"lpprof","--pids",pid_list,"--frequency",s_frequency, 
 	      "-o",output_dir, NULL});
       }
     
