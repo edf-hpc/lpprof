@@ -11,7 +11,7 @@ LPprof simplifies the use of perf with srun parallel launcher. It can also be us
 Profiling of High Performance Linpack at 99Hz :
 
 ~~~
-lpprof -launcher="srun" -frequency="99" ./xhpl
+lpprof --launcher="srun" --frequency="99" ./xhpl
 ~~~
 
 

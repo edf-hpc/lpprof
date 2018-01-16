@@ -68,7 +68,7 @@ class LpProfiler :
             slurm_ntasks=int(os.environ["SLURM_NTASKS"])
             trace_samples=["{}/perf.data_%t".format(self.traces_directory)]
             trace_hwc=["{}/perf.stats_%t".format(self.traces_directory)]
-            for rank in range(0,slurm_ntasks-1):
+            for rank in range(0,slurm_ntasks):
                 if (not self.ranks_to_profile) or (rank in self.ranks_to_profile):
                     output_samples.append("{}/perf.data_{}".format(self.traces_directory,rank))
                     output_hwc.append("{}/perf.stats_{}".format(self.traces_directory,rank))
@@ -105,15 +105,19 @@ class LpProfiler :
         
         with open("./{}/lpprofiler.conf".format(self.traces_directory),"a") as f_conf:
             if profile:
-                f_conf.write("{}-{} bash ./{}/profile_cmd.sh %t\n".format(first_rank,last_rank,self.traces_directory))
+                if (first_rank!=last_rank):
+                    f_conf.write("{}-{} bash ./{}/profile_cmd.sh %t\n".format(first_rank,last_rank,self.traces_directory))
+                else:
+                    f_conf.write("{} bash ./{}/profile_cmd.sh {}\n".format(first_rank,self.traces_directory,first_rank))
+                
             else:
                 f_conf.write("{}-{} {}\n".format(first_rank,last_rank,self.binary))
-                
+                    
     
     def _print_slurm_conf(self,nbranks):
         """ Print slurm multiprog conf file with """
         # first ranks of profile and no profile intervals
-        rank_b_profile=-1 
+        rank_b_profile=-1
         rank_b_noprofile=-1
         last_rank=nbranks-1
         for rank in range(0,nbranks):
@@ -253,7 +257,7 @@ class LpProfiler :
             self._lp_log("  ".ljust(160,"-"))
             self._lp_log("\n")
             metric_unit=''
-            if metric_type in ['asm','sym']:
+            if metric_type in ['asm','sym','vectorization']:
                 metric_unit='%'
             
             for metric_name in self.metrics_manager.get_metric_names_sorted(metric_type):

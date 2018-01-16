@@ -242,10 +242,12 @@ static int _init_lpprof_dir(int taskid,
   }
   struct stat st = {0};
   // Make lpprof outputdir if it does not already exist
-  if (stat(output_dir, &st) == -1) {
+  if ((stat(output_dir, &st) == -1)) {
     if (mkdir(output_dir,S_IXUSR|S_IWUSR|S_IRUSR)){
-      slurm_error("Cannot mkdir %s : %m ",output_dir);
-      return (-1);
+      if(errno!=EEXIST){
+	slurm_error("Cannot mkdir %s : %m ",output_dir);
+	return (-1);
+      }
     }
   }
   if (chdir(output_dir)){
@@ -254,10 +256,12 @@ static int _init_lpprof_dir(int taskid,
   }
 
   // Make lpprof pid dir
-  if (stat(pid_dir, &st) == -1) {
+  if ((stat(pid_dir, &st) == -1)) {
     if (mkdir(pid_dir,S_IXUSR|S_IWUSR|S_IRUSR)){
-      slurm_error("Cannot mkdir %s : %m ",pid_dir);
-      return (-1);
+      if(errno!=EEXIST){
+	slurm_error("Cannot mkdir %s : %m ",pid_dir);
+	return (-1);
+      }
     }
   }
   
@@ -284,7 +288,7 @@ static int _init_lpprof_dir(int taskid,
   }
 
   // Change current dir back to output dir
-  if (chdir(output_dir)){
+  if (chdir(slurm_submit_dir)){
     slurm_error("Cannot chdir to %s : %m ",output_dir);
     return (-1);
   }
@@ -331,10 +335,10 @@ static int _exec_lpprof(const spank_t sp,int frequency,
       sleep(1);
 
       if(rank_list){
-	execvp("lpprof" ,(char *[]){"lpprof","-pids",pid_list,"-frequency",s_frequency, 
-	      "-rank",rank_list,"-o",output_dir, NULL});
+	execvp("lpprof" ,(char *[]){"lpprof","--pids",pid_list,"--frequency",s_frequency, 
+	      "--ranks",rank_list,"-o",output_dir, NULL});
       }else{
-	execvp("lpprof" ,(char *[]){"lpprof","-pids",pid_list,"-frequency",s_frequency, 
+	execvp("lpprof" ,(char *[]){"lpprof","--pids",pid_list,"--frequency",s_frequency, 
 	      "-o",output_dir, NULL});
       }
     

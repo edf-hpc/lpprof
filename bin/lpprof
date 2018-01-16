@@ -96,20 +96,23 @@ def parse_args():
 
     group = parser.add_mutually_exclusive_group(required=False)
     
-    group.add_argument('-launcher',help='parallel jobs launcher (default=std)',
+    group.add_argument('--launcher',help='parallel jobs launcher (default=std)',
                        choices=["std","srun"],default='std')
-    group.add_argument('-pids',help='pids of processes to be profiled')
+    group.add_argument('--pids',help='pids of processes to be profiled')
 
 
 
 #    parser.add_argument('-flame',action='store_true',
 #                        help='Build a Flame Graph. For a better result compile your code with -g and -fno-omit-frame-pointer.')
-    parser.add_argument('-ranks',help='list of ranks to be profiled')
-    parser.add_argument('-frequency',help='Sampling frequency, default is 99Hz')
+    parser.add_argument('--ranks',help='list of ranks to be profiled')
+    parser.add_argument('--frequency',help='Sampling frequency, default is 99Hz')
     parser.add_argument('-o',help='Output directory, default is PERF_<date>')
     parser.add_argument('binary',help='binary to be profiled',nargs='?')
 
-
+    if len(sys.argv)==1:
+        parser.print_help()
+        sys.exit(1)
+                
     return parser.parse_args()
 
 if __name__ == '__main__':

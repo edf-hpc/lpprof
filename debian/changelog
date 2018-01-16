@@ -1,8 +1,19 @@
-lpprof (0.1.2+c9+1) calibre9; urgency=medium
+lpprof (0.1.3+c9+1) calibre9; urgency=medium
 
-  * New Debian release 0.1.2+c9+1
+  * Change metric unit of vectorization metrics to %
+  * Correct spank plugin error caused by race condition happening while making result directories
+  * Correct a problem occuring when only the last rank was profiled
+  * Correct copyright and rules
+  * Correct incoherent metric min/max values
+  * Correct a bug brougth by last commit
+  * Correct spank plugin that was not working when executable was specified as <subdir>/<exe>
+  * Display help when not argument is given to lpprof
+  * Change option names to conform to posix guidelines and update doc and man accordingly
+  * Correct debian package dependencies
+  * Correct a potential acces to unknown key in metrics dictionnary
+  * Add debian package cleaning
 
- -- Pierre Trespeuch <pierre-externe.trespeuch@edf.fr>  Fri, 22 Dec 2017 09:38:27 +0100
+ -- Pierre Trespeuch <pierre-externe.trespeuch@edf.fr>  Tue, 16 Jan 2018 10:40:58 +0100
 
 lpprof (0.1.2) unstable; urgency=medium
 

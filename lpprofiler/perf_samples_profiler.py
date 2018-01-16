@@ -153,10 +153,20 @@ class PerfSamplesProfiler(prof.Profiler) :
             # Extract vectorization information
             self._analyze_vectorization(rank)
 
+            
+            irank+=1
+
+        irank=0
+        for output_file in self.output_files:
+            
+            if ranks:
+                rank=ranks[irank]
+            else:
+                rank=irank
+            
             # Change count to ratios
             self.metrics_manager.metric_counts_to_ratios('asm',rank)
             self.metrics_manager.metric_counts_to_ratios('sym',rank)
-            
             
             irank+=1
             
