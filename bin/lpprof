@@ -42,13 +42,20 @@ def main():
 
 #    if args.flame:
 #        prof_args["flame_graph "]=args.flame
-
     
     if args.launcher:
         launcher=args.launcher
 
-    if args.pids:    
-        pids=_get_list_from_args(args.pids)
+    # List of pids can be given as :
+    # <rank>:<hostname>:<pid>,<rank>:<hostname>:<pid>
+    # Or
+    # <pid>,<pid>-<pid>,<pid>
+    if args.pids:
+        pids=_order_pids(args.pids)
+        if not pids:
+            pids=_get_list_from_args(args.pids)
+            
+        print(pids)
         launcher='pid'
 
     if args.ranks:
@@ -57,23 +64,41 @@ def main():
     # Build profiler 
     lpprof=lpp.LpProfiler(launcher,pids,ranks,args.binary,prof_args)
 
-    signal.signal(signal.SIGUSR1, receive_signal)
-
     # Run profiling
     lpprof.run()
 
     # Print profiling report
     lpprof.report()
 
-def receive_signal(signum, stack):
-    perror('Python received: '+signum)
 
 
+def _order_pids(unsorted_pids):
+    """ Transform pids given as
+     [<rank>:<hostname>:<pid>,<rank>:<hostname>:<pid>,...]
+    to a list sorted by ranks:
+     [<hostname>:<pid>,<hostname>:<pid>,...]
+    """    
+    result=[]
+    
+    for el in sorted(unsorted_pids.split(',')):
+        splitted_el=el.split(':')
+        print(el)
+        if len(splitted_el)>2:
+            result.append(splitted_el[1]+':'+splitted_el[2])
+        else:
+            return None
+
+        
+    return result
+    
+    
 def _get_list_from_args(args):
-    # Transform argument:
-    # a0,a1,a2,a3....a4
-    # To list :
-    # [a0,a1,a2,a3,a3+1,a3+2,......,a4]
+    """
+    Transform argument:
+     a0,a1,a2,a3....a4
+     To list :
+     [a0,a1,a2,a3,a3+1,a3+2,......,a4]
+    """
     result=[]
     
     el_list=args.split(",")
@@ -106,7 +131,7 @@ def parse_args():
 #                        help='Build a Flame Graph. For a better result compile your code with -g and -fno-omit-frame-pointer.')
     parser.add_argument('--ranks',help='list of ranks to be profiled')
     parser.add_argument('--frequency',help='Sampling frequency, default is 99Hz')
-    parser.add_argument('-o',help='Output directory, default is PERF_<date>')
+    parser.add_argument('-o',help='Output directory, default is perf_<date>')
     parser.add_argument('binary',help='binary to be profiled',nargs='?')
 
     if len(sys.argv)==1:
