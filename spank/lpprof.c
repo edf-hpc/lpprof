@@ -101,8 +101,9 @@ int slurm_spank_task_exit(spank_t sp, int ac, char **av)
   char pid_dir[PATH_MAX];
   slurm_getenv(sp,slurm_submit_dir,"SLURM_SUBMIT_DIR");
   slurm_getenv(sp,slurm_job_id,"SLURM_JOB_ID");
-  snprintf(output_dir,PATH_MAX,"%s/PERF_%s",slurm_submit_dir,slurm_job_id);
-  snprintf(pid_dir,PATH_MAX,"%s/PERF_%s/lpprof_pid",slurm_submit_dir,slurm_job_id);
+
+  snprintf(output_dir,PATH_MAX,"%s/perf_%s",slurm_submit_dir,slurm_job_id);
+  snprintf(pid_dir,PATH_MAX,"%s/perf_%s/lpprof_pid",slurm_submit_dir,slurm_job_id);
 
   if (chdir(output_dir)){
     slurm_error("Cannot chdir to %s : %m ",output_dir);
@@ -163,11 +164,13 @@ int slurm_spank_task_init (spank_t sp, int ac, char **av)
   char slurm_submit_dir[PATH_MAX];
   char slurm_job_id [SLURM_ENVSIZE];
   char slurm_env_path [SLURM_ENVSIZE];
+  char slurm_nodename [SLURM_ENVSIZE];
   char slurm_step_num_tasks [SLURM_ENVSIZE];
   
   slurm_getenv(sp,slurm_submit_dir,"SLURM_SUBMIT_DIR");
   slurm_getenv(sp,slurm_job_id,"SLURM_JOB_ID");
   slurm_getenv(sp,slurm_env_path,"PATH");
+  slurm_getenv(sp,slurm_nodename,"SLURMD_NODENAME");
 
   // If NUM_TASKS is not set current process is the parent slurmstepd process
   // that should not be profiled.
@@ -197,12 +200,12 @@ int slurm_spank_task_init (spank_t sp, int ac, char **av)
   
   // Initialize a pid_list
   char *pid_list=NULL;
-  pid_list=malloc(sizeof(char)*nbtasks*64);
+  pid_list=malloc(sizeof(char)*nbtasks*HOSTPID_MXSZ);
   strcpy(pid_list,"");
 
   
   // Init directory and pid_list
-  if (_init_lpprof_dir(taskid,nbtasks,slurm_submit_dir,slurm_job_id,slurm_env_path,&pid_list)){
+  if (_init_lpprof_dir(taskid,nbtasks,slurm_submit_dir,slurm_job_id,slurm_env_path,slurm_nodename,&pid_list)){
       slurm_error("Error with srun --lpprof spank plugin option : %m ");
       return (-1);
   }
@@ -227,14 +230,15 @@ static int _init_lpprof_dir(int taskid,
 			    const char* slurm_submit_dir,
 			    const char* slurm_job_id,
 			    const char* slurm_env_path,
+			    const char* slurm_nodename,
 			    char** pid_list){
 
   char output_dir[PATH_MAX];
   char pid_dir[PATH_MAX];
   int pid=getpid();
 
-  snprintf(output_dir,PATH_MAX,"%s/PERF_%s",slurm_submit_dir,slurm_job_id);
-  snprintf(pid_dir,PATH_MAX,"%s/PERF_%s/pids",slurm_submit_dir,slurm_job_id);
+  snprintf(output_dir,PATH_MAX,"%s/perf_%s",slurm_submit_dir,slurm_job_id);
+  snprintf(pid_dir,PATH_MAX,"%s/perf_%s/pids",slurm_submit_dir,slurm_job_id);
 
   if (chdir(slurm_submit_dir)){
     slurm_error("Cannot chdir to %s : %m ",slurm_submit_dir);
@@ -271,7 +275,7 @@ static int _init_lpprof_dir(int taskid,
   }
   
 
-  write_pid_file(pid);
+  write_pid_file(pid,slurm_nodename,taskid);
 
   // Wait for all pids to be written
   int nbpid_files_written;
@@ -319,7 +323,7 @@ static int _exec_lpprof(const spank_t sp,int frequency,
       char output_dir[PATH_MAX];
       char pid_dir[PATH_MAX];
       struct stat st = {0};
-      snprintf(output_dir,PATH_MAX,"%s/PERF_%s",slurm_submit_dir,slurm_job_id);
+      snprintf(output_dir,PATH_MAX,"%s/perf_%s",slurm_submit_dir,slurm_job_id);
       
       if (chdir(output_dir)){
 	slurm_error("Cannot chdir to %s : %m ",pid_dir);
@@ -350,7 +354,7 @@ static int _exec_lpprof(const spank_t sp,int frequency,
     {
       char pid_dir[PATH_MAX];
       struct stat st = {0};
-      snprintf(pid_dir,PATH_MAX,"%s/PERF_%s/lpprof_pid",slurm_submit_dir,slurm_job_id);
+      snprintf(pid_dir,PATH_MAX,"%s/perf_%s/lpprof_pid",slurm_submit_dir,slurm_job_id);
 
       // Make lpprof pid dir
       if (stat(pid_dir, &st) == -1) {

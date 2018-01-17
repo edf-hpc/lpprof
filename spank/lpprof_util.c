@@ -60,6 +60,18 @@ int write_pid_file(pid_t pid){
 
 }
 
+int write_pid_file(pid_t pid,char* hostname,int taskid){
+  // Make a file named with current task pid
+  char s_host_pid[HOSTPID_MXSZ];
+  snprintf(s_host_pid, HOSTPID_MXSZ, "%d:%s:%d",taskid,hostname,pid);
+  FILE* pidfile=fopen(s_host_pid,"w");
+  fclose(pidfile);
+}
+
+
+
+
+
 int count_pid_files(){
 
   int count=0;
@@ -137,8 +149,9 @@ int read_pids(char** pid_list,int nbpids){
   DIR * dir=NULL;
   struct dirent * buf=NULL, * de=NULL;
   int ipid=0;
-  int* ipid_list=(int*) malloc(nbpids*sizeof(int));
-  
+    
+  //  int* ipid_list=(int*) malloc(nbpids*sizeof(int));
+  //  char ipid_list [nbpids][HOSTPID_MXSZ];
   
   if ((dir = opendir("."))
       && (len_entry = offsetof(struct dirent, d_name) + fpathconf(dirfd(dir), _PC_NAME_MAX) + 1)
@@ -148,7 +161,10 @@ int read_pids(char** pid_list,int nbpids){
 	{
 	  if (de->d_type == DT_REG)
 	    {
-	      ipid_list[ipid]=atoi(de->d_name);
+	      strncat(*pid_list,de->d_name);
+	      if (ipid!=nbpids-1)
+		strcat(*pid_list,",");
+	      //ipid_list[ipid]=atoi(de->d_name);
 	      ipid+=1;
 	    }
 	}
@@ -157,18 +173,18 @@ int read_pids(char** pid_list,int nbpids){
     return(-1);
   }
 
-  quicksort(ipid_list,0,nbpids-1);
+  //  quicksort(ipid_list,0,nbpids-1);
 
-  char pid_buffer[64]; // 64 should be enought to contain a pid
+  /*  char pid_buffer[64]; 
   for(ipid=0;ipid<nbpids;ipid++){
     snprintf(pid_buffer,64, "%d", ipid_list[ipid]);
     strcat(*pid_list,pid_buffer);
     if (ipid!=nbpids-1)
       strcat(*pid_list,",");
-  }
+      }*/
   
   
-  free(ipid_list);
+  //  free(ipid_list);
   free(buf);
 
   return(0);
