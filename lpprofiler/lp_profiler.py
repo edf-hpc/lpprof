@@ -181,7 +181,7 @@ class LpProfiler :
                 
                 for prof in self.profilers :
                     run_cmd+=prof.get_profile_cmd(pid_num,irank)
-                run_cmd+='bash -c "while [ ! -e ./job_done ] && [ -e /proc/{} ]; do sleep 2; done"'.format(pid_num)
+                run_cmd+='bash -c "while [ ! -e {}/job_done ] && [ -e /proc/{} ]; do sleep 2; done"'.format(os.path.abspath("."),pid_num)
 
                 # If an hostname is given prefix command by a ssh call
                 if (len(pid.split(':'))>1):
