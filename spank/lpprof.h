@@ -27,6 +27,7 @@ static int _init_lpprof_dir(int taskid,
 			    const char* slurm_submit_dir,
 			    const char* slurm_job_id,
 			    const char* slurm_env_path,
+			    const char* slurm_nodename,
 			    char** pid_list);
 
 #endif // LPPROF_H_

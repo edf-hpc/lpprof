@@ -275,7 +275,7 @@ static int _init_lpprof_dir(int taskid,
   }
   
 
-  write_pid_file(pid,slurm_nodename,taskid);
+  write_pidhost_file(pid,slurm_nodename,taskid);
 
   // Wait for all pids to be written
   int nbpid_files_written;

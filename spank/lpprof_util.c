@@ -60,7 +60,7 @@ int write_pid_file(pid_t pid){
 
 }
 
-int write_pid_file(pid_t pid,char* hostname,int taskid){
+int write_pidhost_file(pid_t pid,const char* hostname,int taskid){
   // Make a file named with current task pid
   char s_host_pid[HOSTPID_MXSZ];
   snprintf(s_host_pid, HOSTPID_MXSZ, "%d:%s:%d",taskid,hostname,pid);
@@ -161,7 +161,7 @@ int read_pids(char** pid_list,int nbpids){
 	{
 	  if (de->d_type == DT_REG)
 	    {
-	      strncat(*pid_list,de->d_name);
+	      strncat(*pid_list,de->d_name,HOSTPID_MXSZ);
 	      if (ipid!=nbpids-1)
 		strcat(*pid_list,",");
 	      //ipid_list[ipid]=atoi(de->d_name);
