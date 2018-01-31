@@ -1,3 +1,9 @@
+lpprof (0.2.0+c9+1) calibre9; urgency=medium
+
+  * Backport calibre9
+
+ -- Pierre Trespeuch <pierre-externe.trespeuch@edf.fr>  Wed, 31 Jan 2018 17:24:05 +0100
+
 lpprof (0.2.0) unstable; urgency=medium
 
   * Change metric unit of vectorization metrics to %
