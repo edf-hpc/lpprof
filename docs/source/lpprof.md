@@ -16,11 +16,16 @@ It analyzes perf record samples and perf stat results to provide direct and deri
 
 # OPTIONS
 
+"--version"
+Print lpprof version.
+
 "--launcher"
 Parallel launcher (ex: srun). Use "std" to execute a program without parallel launcher.
 
 "--pids"
 List of pids to attach to.
+The pid list can be <pid1,pid2,pid3,.....> if alls pids are on local host or <rank1:hostname1:pid1,rank2,hostname2,pid2,...> if tasks are spread among different hosts.
+
 
 "--frequency"
 Frequency of perf sampling.
