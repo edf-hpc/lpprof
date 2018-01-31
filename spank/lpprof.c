@@ -83,16 +83,12 @@ int slurm_spank_task_exit(spank_t sp, int ac, char **av)
     return(0);
   }
 
-  int taskid=0;
-  spank_get_item (sp, S_TASK_ID, &taskid);
+  unsigned int taskid=0;
+  spank_get_item (sp, S_TASK_GLOBAL_ID, &taskid);
 
-  
     
   if((spank_context() != S_CTX_REMOTE)||(taskid!=0))
     return(0);
-  else{
-    slurm_verbose("In remote context !");
-  }
 
   
   char output_dir[PATH_MAX];
@@ -157,9 +153,8 @@ int slurm_spank_task_init (spank_t sp, int ac, char **av)
     return(0);
   }
   
-  unsigned int globalid=0;
-  int taskid=0;
-  int nbtasks=0;
+  unsigned int taskid=0;
+  unsigned int nbtasks=0;
   int ismaster=0;
   char slurm_submit_dir[PATH_MAX];
   char slurm_job_id [SLURM_ENVSIZE];
@@ -177,8 +172,7 @@ int slurm_spank_task_init (spank_t sp, int ac, char **av)
   if(slurm_getenv(sp,slurm_step_num_tasks,"SLURM_STEP_NUM_TASKS"))
     return (0);
 
-  spank_get_item (sp, S_TASK_ID, &taskid);
-  spank_get_item (sp, S_TASK_GLOBAL_ID, &globalid);
+  spank_get_item (sp, S_TASK_GLOBAL_ID, &taskid);
   spank_get_item (sp, S_JOB_TOTAL_TASK_COUNT,&nbtasks);
 
 
@@ -225,8 +219,8 @@ int slurm_spank_task_init (spank_t sp, int ac, char **av)
 }
 
 
-static int _init_lpprof_dir(int taskid,
-			    int nbtasks,
+static int _init_lpprof_dir(unsigned int taskid,
+			    unsigned int nbtasks,
 			    const char* slurm_submit_dir,
 			    const char* slurm_job_id,
 			    const char* slurm_env_path,
@@ -278,11 +272,15 @@ static int _init_lpprof_dir(int taskid,
   write_pidhost_file(pid,slurm_nodename,taskid);
 
   // Wait for all pids to be written
-  int nbpid_files_written;
+  int nbpid_files_written=0;
+
 
   if (taskid==0){
-    while(nbpid_files_written!=nbtasks)
+    while(nbpid_files_written!=nbtasks){
+      usleep(1000);
       nbpid_files_written=count_pid_files();
+    }
+    
   }
   
   if (taskid==0){
