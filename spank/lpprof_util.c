@@ -7,38 +7,6 @@
 #include <stdlib.h>
 
 
-void quicksort( int a[], int l, int r)
-{
-  int j;
-
-  if( l < r )
-    {
-      // divide and conquer
-      j = partition( a, l, r);
-      quicksort( a, l, j-1);
-      quicksort( a, j+1, r);
-    }
-
-}
-
-int partition( int a[], int l, int r) {
-  int pivot, i, j, t;
-  pivot = a[l];
-  i = l; j = r+1;
-
-  while( 1)
-    {
-      do ++i; while( a[i] <= pivot && i <= r );
-      do --j; while( a[j] > pivot );
-      if( i >= j ) break;
-      t = a[i]; a[i] = a[j]; a[j] = t;
-    }
-  t = a[l]; a[l] = a[j]; a[j] = t;
-  return j;
-}
-
-
-
 int slurm_getenv(spank_t sp,char* value,char* env_varname){
 
   char error_msg[512];
@@ -59,6 +27,18 @@ int write_pid_file(pid_t pid){
   fclose(pidfile);
 
 }
+
+int write_pidhost_file(pid_t pid,const char* hostname,unsigned int taskid){
+  // Make a file named with current task pid, hostname and taskid
+  char s_host_pid[HOSTPID_MXSZ];
+  snprintf(s_host_pid, HOSTPID_MXSZ, "%d:%s:%d",taskid,hostname,pid);
+  FILE* pidfile=fopen(s_host_pid,"w");
+  fclose(pidfile);
+}
+
+
+
+
 
 int count_pid_files(){
 
@@ -82,7 +62,7 @@ int count_pid_files(){
     }
   
   free(buf);
-
+  closedir(dir);
 
   return count;
 }
@@ -137,9 +117,7 @@ int read_pids(char** pid_list,int nbpids){
   DIR * dir=NULL;
   struct dirent * buf=NULL, * de=NULL;
   int ipid=0;
-  int* ipid_list=(int*) malloc(nbpids*sizeof(int));
-  
-  
+      
   if ((dir = opendir("."))
       && (len_entry = offsetof(struct dirent, d_name) + fpathconf(dirfd(dir), _PC_NAME_MAX) + 1)
       && (buf = (struct dirent *) malloc(len_entry)))
@@ -148,7 +126,9 @@ int read_pids(char** pid_list,int nbpids){
 	{
 	  if (de->d_type == DT_REG)
 	    {
-	      ipid_list[ipid]=atoi(de->d_name);
+	      strncat(*pid_list,de->d_name,HOSTPID_MXSZ);
+	      if (ipid!=nbpids-1)
+		strcat(*pid_list,",");
 	      ipid+=1;
 	    }
 	}
@@ -157,18 +137,6 @@ int read_pids(char** pid_list,int nbpids){
     return(-1);
   }
 
-  quicksort(ipid_list,0,nbpids-1);
-
-  char pid_buffer[64]; // 64 should be enought to contain a pid
-  for(ipid=0;ipid<nbpids;ipid++){
-    snprintf(pid_buffer,64, "%d", ipid_list[ipid]);
-    strcat(*pid_list,pid_buffer);
-    if (ipid!=nbpids-1)
-      strcat(*pid_list,",");
-  }
-  
-  
-  free(ipid_list);
   free(buf);
 
   return(0);

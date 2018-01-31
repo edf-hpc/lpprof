@@ -54,7 +54,7 @@ class LpProfiler :
             self.traces_directory=profiling_args['output_dir']
         else:
             today=datetime.datetime.today()
-            self.traces_directory="PERF_{}".format(today.isoformat())
+            self.traces_directory="perf_{}".format(today.isoformat())
             
         if not os.path.exists(self.traces_directory):
             os.mkdir(self.traces_directory)
@@ -169,22 +169,27 @@ class LpProfiler :
         """ Profile a processus given its PID"""
 
         run_cmds=[]
-        
+
         rank=0
         irank=0
         for pid in self.pids_to_profile:
             run_cmd=''
-            for prof in self.profilers :
-                if (not self.ranks_to_profile) or (rank in self.ranks_to_profile):
-                    run_cmd+=prof.get_profile_cmd(pid,irank)
             if (not self.ranks_to_profile) or (rank in self.ranks_to_profile):
+
+                pid_num=int(pid.split(':')[-1])
+                pid_host=pid.split(':')[0]
+                
+                for prof in self.profilers :
+                    run_cmd+=prof.get_profile_cmd(pid_num,irank)
+                run_cmd+='bash -c "while [ ! -e {}/job_done ] && [ -e /proc/{} ]; do sleep 2; done"'.format(os.path.abspath("."),pid_num)
+
+                # If an hostname is given prefix command by a ssh call
+                if (len(pid.split(':'))>1):
+                    run_cmd="ssh {} '{}'".format(pid_host,run_cmd)
+                    
                 irank+=1
 
-                   
-                    
-            # Use tail to stop profiling when profiled processus ends 
-            #run_cmd+=' {'+' trap SIGUSR1; tail --pid={} -f /dev/null; '.format(pid)+'}'
-            run_cmd+='bash -c "while [ ! -e ./job_done ] && [ -e /proc/{} ]; do sleep 2; done"'.format(pid)
+                
             run_cmds.append(run_cmd)
             rank+=1
                 

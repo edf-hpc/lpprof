@@ -42,9 +42,9 @@ class PerfHWcountersProfiler(prof.Profiler) :
         counters.append("cpu/event=0x85,umask=0x10,name=iTLBmiss_cycles/")
 
         if pid>=0 and rank>=0:
-            return "perf stat --pid={} -x / -e {} -D 100 -o {} ".format(pid,','.join(counters),self.trace_files[rank])
+            return "perf stat --pid={} -x / -e {} -D 100 -o {} ".format(pid,','.join(counters),os.path.abspath(self.trace_files[rank]))
         else:
-            return "perf stat -x / -e {} -D 100 -o {} ".format(','.join(counters),self.trace_files[0])
+            return "perf stat -x / -e {} -D 100 -o {} ".format(','.join(counters),os.path.abspath(self.trace_files[0]))
 
 
     
