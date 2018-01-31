@@ -30,7 +30,7 @@ if sys.version_info < (3,4):
         sys.exit('Sorry, Python < 3.4 is not supported')
 
 setup(name='lpprof',
-      version='0.4',
+      version='0.2',
       description='Lightweight Performance profiler using Linux perf_events.',
       author='EDF CCN HPC',
       author_email='dsp-cspito-ccn-hpc@edf.fr',

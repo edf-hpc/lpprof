@@ -1,4 +1,4 @@
-lpprof (0.1.3) unstable; urgency=medium
+lpprof (0.2.0) unstable; urgency=medium
 
   * Change metric unit of vectorization metrics to %
   * Correct spank plugin error caused by race condition happening while making result directories
