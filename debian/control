@@ -21,7 +21,7 @@ Description: This package provides Lpprof software.
 
 Package: lpprof-spank
 Architecture: any
-Depends: slurm-client, lpprof ${misc:Depends}, ${shlibs:Depends}
+Depends: slurm-client, lpprof, ${misc:Depends}, ${shlibs:Depends}
 Description: This package provides Lpprof Slurm Spank plugin.
 	     This plugin makes it easy to use Lpprof with SLURM
 	     scheduler by providing --lpprof_f and --lpprof_r srun
