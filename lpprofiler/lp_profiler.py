@@ -52,6 +52,8 @@ class LpProfiler :
 
         if( 'output_dir' in profiling_args):
             self.traces_directory=profiling_args['output_dir']
+        elif(os.environ.get('SLURM_JOB_ID')):
+            self.traces_directory="perf_{}".format(os.environ.get('SLURM_JOB_ID'))
         else:
             today=datetime.datetime.today()
             self.traces_directory="perf_{}".format(today.isoformat())
