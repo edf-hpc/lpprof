@@ -99,11 +99,10 @@ class PerfSamplesProfiler(prof.Profiler) :
             return
         
         eip=m.group(1)
-        sym=m.group(2)
+        sym=m.group(2)+' @ '+m.group(3).split('/')[-1]
         binary_path=m.group(3)
         asm_name='unknown'
 
-        
         # Address from kallsyms won't be analyzed
         if os.path.exists(binary_path):
             if (binary_path+eip) in self.known_assembly_dic:
@@ -166,8 +165,9 @@ class PerfSamplesProfiler(prof.Profiler) :
             
             # Change count to ratios
             self.metrics_manager.metric_counts_to_ratios('asm',rank)
-            self.metrics_manager.metric_counts_to_ratios('sym',rank)
-            
+            cpu_utilization=self.metrics_manager.get_metric_count('hwc','CPUs-utilized',rank)
+            self.metrics_manager.metric_counts_to_ratios('sym',rank,adjust=cpu_utilization)
+            self.metrics_manager.add_metric(rank,'sym','CPUs-idle',(1-cpu_utilization)*100)
             irank+=1
             
         # Remove all assembly instructions and symbols with low occurence
