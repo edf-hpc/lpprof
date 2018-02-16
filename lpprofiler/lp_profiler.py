@@ -67,7 +67,7 @@ class LpProfiler :
         output_samples=[]
         output_hwc=[]
         if (self.launcher)and('srun' in self.launcher):
-            slurm_ntasks=int(os.environ["SLURM_NTASKS"])
+            slurm_ntasks=self._get_slurm_ntasks()
             trace_samples=["{}/perf.data_%t".format(self.traces_directory)]
             trace_hwc=["{}/perf.stats_%t".format(self.traces_directory)]
             for rank in range(0,slurm_ntasks):
@@ -140,6 +140,25 @@ class LpProfiler :
                 if rank==last_rank:
                     self._append_slurm_conf(rank_b_noprofile,rank,False)
         
+
+    def _get_slurm_ntasks(self):
+        slurm_ntasks=1
+        try :
+            ntasks_index=self.launcher.split().index('-n')
+        except:
+            try:
+                ntasks_index=self.launcher.split().index('--ntasks')
+            except:
+                if os.environ.get("SLURM_NTASKS"):
+                    slurm_ntasks=int(os.environ.get("SLURM_NTASKS"))
+                else:
+                    slurm_ntasks=1
+            else:
+                slurm_ntasks=int(self.launcher.split()[ntasks_index+1])
+        else:
+            slurm_ntasks=int(self.launcher.split()[ntasks_index+1])
+        return(slurm_ntasks-1)
+ 
         
     def _slurm_run_cmd(self):
         """ Run slurm job with profiling """
@@ -148,7 +167,7 @@ class LpProfiler :
         for prof in self.profilers :
             profile_cmd+=prof.get_profile_cmd()
 
-        slurm_ntasks=int(os.environ["SLURM_NTASKS"])
+        slurm_ntasks=self._get_slurm_ntasks();
 
         
         self.ranks_to_profile
