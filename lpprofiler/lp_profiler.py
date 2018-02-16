@@ -60,6 +60,14 @@ class LpProfiler :
             
         if not os.path.exists(self.traces_directory):
             os.mkdir(self.traces_directory)
+        else:
+            dir_id=1
+            while os.path.exists(self.traces_directory):
+                self.traces_directory=self.traces_directory+'_'+str(dir_id)
+                dir_id+=1
+                
+            os.mkdir(self.traces_directory)
+                                                    
         
         # Build profilers
         trace_samples=[]
@@ -157,7 +165,7 @@ class LpProfiler :
                 slurm_ntasks=int(self.launcher.split()[ntasks_index+1])
         else:
             slurm_ntasks=int(self.launcher.split()[ntasks_index+1])
-        return(slurm_ntasks-1)
+        return(slurm_ntasks)
  
         
     def _slurm_run_cmd(self):
@@ -278,7 +286,7 @@ class LpProfiler :
             self._lp_log(title+"\n")
             self._lp_log("".ljust(len(title),"-"))
             self._lp_log("\n\n")
-            self._lp_log("  metric name".ljust(40))
+            self._lp_log("  metric name".ljust(60))
             self._lp_log("min".ljust(40))
             self._lp_log("max".ljust(40))
             self._lp_log("avg".ljust(40))
@@ -292,7 +300,7 @@ class LpProfiler :
             for metric_name in self.metrics_manager.get_metric_names_sorted(metric_type):
 
                 
-                self._lp_log("  {} ".format(metric_name).ljust(40))
+                self._lp_log("  {} ".format(metric_name).ljust(60))
                 self._lp_log("{:.5g}{}".format(
                     self.metrics_manager.get_metric_min(metric_type,metric_name)[0],metric_unit).ljust(10))
                 self._lp_log("    (rank: {})".format(
