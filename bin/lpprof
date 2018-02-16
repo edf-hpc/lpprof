@@ -122,7 +122,7 @@ def parse_args():
     group = parser.add_mutually_exclusive_group(required=False)
     
     group.add_argument('--launcher',help='parallel jobs launcher (default=std)',
-                       choices=["std","srun"],default='std')
+                       default='std')
     group.add_argument('--pids',help='pids of processes to be profiled')
 
 
