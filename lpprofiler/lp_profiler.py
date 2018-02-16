@@ -60,7 +60,7 @@ class LpProfiler :
             
         if not os.path.exists(self.traces_directory):
             os.mkdir(self.traces_directory)
-        else:
+        elif (not 'output_dir' in profiling_args):
             dir_id=1
             while os.path.exists(self.traces_directory):
                 self.traces_directory=self.traces_directory+'_'+str(dir_id)
@@ -160,7 +160,10 @@ class LpProfiler :
                 if os.environ.get("SLURM_NTASKS"):
                     slurm_ntasks=int(os.environ.get("SLURM_NTASKS"))
                 else:
-                    slurm_ntasks=1
+                    if os.environ.get("SLURM_NNODES"):
+                        slurm_ntasks=int(os.environ.get("SLURM_NNODES"))
+                    else:
+                        slurm_ntasks=1
             else:
                 slurm_ntasks=int(self.launcher.split()[ntasks_index+1])
         else:
