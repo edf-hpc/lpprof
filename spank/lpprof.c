@@ -332,10 +332,6 @@ static int _exec_lpprof(const spank_t sp,int frequency,
       snprintf(s_frequency, 1024, "%d", frequency);
       setenv("PATH", slurm_env_path, 1);
 
-      // A delay is needed to avoid the case where lpprof is unable to find threads to monitor.
-      // TODO: replace sleep by a proper check.
-      sleep(1);
-
       if(rank_list){
 	execvp("lpprof" ,(char *[]){"lpprof","--pids",pid_list,"--frequency",s_frequency, 
 	      "--ranks",rank_list,"-o",output_dir, NULL});
@@ -374,6 +370,10 @@ static int _exec_lpprof(const spank_t sp,int frequency,
 	slurm_error("Cannot chdir to %s : %m ",pid_dir);
 	return (-1);
       }
+
+      // A delay is needed to let profiling processes be ready to attach
+      // TODO: add a proper check instead
+      sleep(2);
 
 
       return(0);

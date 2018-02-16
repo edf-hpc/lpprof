@@ -52,12 +52,22 @@ class LpProfiler :
 
         if( 'output_dir' in profiling_args):
             self.traces_directory=profiling_args['output_dir']
+        elif(os.environ.get('SLURM_JOB_ID')):
+            self.traces_directory="perf_{}".format(os.environ.get('SLURM_JOB_ID'))
         else:
             today=datetime.datetime.today()
             self.traces_directory="perf_{}".format(today.isoformat())
             
         if not os.path.exists(self.traces_directory):
             os.mkdir(self.traces_directory)
+        elif (not 'output_dir' in profiling_args):
+            dir_id=1
+            while os.path.exists(self.traces_directory):
+                self.traces_directory=self.traces_directory+'_'+str(dir_id)
+                dir_id+=1
+                
+            os.mkdir(self.traces_directory)
+                                                    
         
         # Build profilers
         trace_samples=[]
@@ -65,7 +75,7 @@ class LpProfiler :
         output_samples=[]
         output_hwc=[]
         if (self.launcher)and('srun' in self.launcher):
-            slurm_ntasks=int(os.environ["SLURM_NTASKS"])
+            slurm_ntasks=self._get_slurm_ntasks()
             trace_samples=["{}/perf.data_%t".format(self.traces_directory)]
             trace_hwc=["{}/perf.stats_%t".format(self.traces_directory)]
             for rank in range(0,slurm_ntasks):
@@ -138,6 +148,28 @@ class LpProfiler :
                 if rank==last_rank:
                     self._append_slurm_conf(rank_b_noprofile,rank,False)
         
+
+    def _get_slurm_ntasks(self):
+        slurm_ntasks=1
+        try :
+            ntasks_index=self.launcher.split().index('-n')
+        except:
+            try:
+                ntasks_index=self.launcher.split().index('--ntasks')
+            except:
+                if os.environ.get("SLURM_NTASKS"):
+                    slurm_ntasks=int(os.environ.get("SLURM_NTASKS"))
+                else:
+                    if os.environ.get("SLURM_NNODES"):
+                        slurm_ntasks=int(os.environ.get("SLURM_NNODES"))
+                    else:
+                        slurm_ntasks=1
+            else:
+                slurm_ntasks=int(self.launcher.split()[ntasks_index+1])
+        else:
+            slurm_ntasks=int(self.launcher.split()[ntasks_index+1])
+        return(slurm_ntasks)
+ 
         
     def _slurm_run_cmd(self):
         """ Run slurm job with profiling """
@@ -146,7 +178,7 @@ class LpProfiler :
         for prof in self.profilers :
             profile_cmd+=prof.get_profile_cmd()
 
-        slurm_ntasks=int(os.environ["SLURM_NTASKS"])
+        slurm_ntasks=self._get_slurm_ntasks();
 
         
         self.ranks_to_profile
@@ -181,6 +213,9 @@ class LpProfiler :
                 
                 for prof in self.profilers :
                     run_cmd+=prof.get_profile_cmd(pid_num,irank)
+                # Wait for tasks to start before starting perf
+                run_cmd='while [[ $(ps -p {} --no-headers -o comm) == slurmstepd ]]; do sleep 0.1; done; '.format(pid_num)+run_cmd
+                # Wait for job to finish
                 run_cmd+='bash -c "while [ ! -e {}/job_done ] && [ -e /proc/{} ]; do sleep 2; done"'.format(os.path.abspath("."),pid_num)
 
                 # If an hostname is given prefix command by a ssh call
@@ -254,7 +289,7 @@ class LpProfiler :
             self._lp_log(title+"\n")
             self._lp_log("".ljust(len(title),"-"))
             self._lp_log("\n\n")
-            self._lp_log("  metric name".ljust(40))
+            self._lp_log("  metric name".ljust(60))
             self._lp_log("min".ljust(40))
             self._lp_log("max".ljust(40))
             self._lp_log("avg".ljust(40))
@@ -268,7 +303,7 @@ class LpProfiler :
             for metric_name in self.metrics_manager.get_metric_names_sorted(metric_type):
 
                 
-                self._lp_log("  {} ".format(metric_name).ljust(40))
+                self._lp_log("  {} ".format(metric_name).ljust(60))
                 self._lp_log("{:.5g}{}".format(
                     self.metrics_manager.get_metric_min(metric_type,metric_name)[0],metric_unit).ljust(10))
                 self._lp_log("    (rank: {})".format(

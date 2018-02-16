@@ -42,9 +42,9 @@ class PerfHWcountersProfiler(prof.Profiler) :
         counters.append("cpu/event=0x85,umask=0x10,name=iTLBmiss_cycles/")
 
         if pid>=0 and rank>=0:
-            return "perf stat --pid={} -x / -e {} -D 100 -o {} ".format(pid,','.join(counters),os.path.abspath(self.trace_files[rank]))
+            return "perf stat --pid={} -e {} -D 100 -o {} ".format(pid,','.join(counters),os.path.abspath(self.trace_files[rank]))
         else:
-            return "perf stat -x / -e {} -D 100 -o {} ".format(','.join(counters),os.path.abspath(self.trace_files[0]))
+            return "perf stat -e {} -D 100 -o {} ".format(','.join(counters),os.path.abspath(self.trace_files[0]))
 
 
     
@@ -61,6 +61,34 @@ class PerfHWcountersProfiler(prof.Profiler) :
             
             with open(stats_file,'r') as sf:
                 for line in sf:
+                    splitted_line=line.rstrip().split()
+                    # Convert , to . to be sure floats are well formatted
+                    str_count=""
+                    for idx,substring in enumerate(splitted_line):
+                        try:
+                            float(substring.replace(',', '.'))
+                        except:
+                            metric_name=substring.strip()
+                            if metric_name=="task-clock":
+                                self.metrics_manager.add_metric(rank,metric_type,"CPUs-utilized",float(splitted_line[idx+3].replace(',', '.')))
+                            if metric_name=="cycles":
+                                self.metrics_manager.add_metric(rank,metric_type,"GHz",float(splitted_line[idx+2].replace(',', '.')))
+
+                            break
+                        else:
+                            str_count+=substring.replace(',', '.')
+                            
+                    if str_count:
+                        local_count=float(str_count)
+
+                        if "time elapsed" in line:
+                            metric_name="elapsed_time"
+
+                        self.metrics_manager.add_metric(rank,metric_type,metric_name,local_count)
+
+
+                    """
+                    # This version works with perf stat -x but does not provide Ghz and cpu-utilized
                     splitted_line=line.rstrip().split("//")
                     if len(splitted_line)==2:
                         # Convert , to . to be sure floats are well formatted
@@ -73,7 +101,7 @@ class PerfHWcountersProfiler(prof.Profiler) :
 
                         metric_name=splitted_line[1]
                         self.metrics_manager.add_metric(rank,metric_type,metric_name,local_count)
-
+                    """
             # Derivated metrics
             ins=float(self.metrics_manager.get_metric_count(metric_type,'instructions',rank))
             cycles=float(self.metrics_manager.get_metric_count(metric_type,'cycles',rank))

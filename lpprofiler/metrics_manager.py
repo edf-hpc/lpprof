@@ -74,7 +74,10 @@ class MetricsManager:
             return 0
         return self.metrics_count[metric_type][metric_name][rank]
 
-    def metric_counts_to_ratios(self,metric_type,rank):
+    def metric_counts_to_ratios(self,metric_type,rank,adjust=None):
+        """
+        Change count to ratio of occurence amongst metrics of same types.
+        """
         total_count=0.0
         for metric_name in self.metrics_count[metric_type]:
             total_count+=self.metrics_count[metric_type][metric_name][rank]
@@ -83,6 +86,10 @@ class MetricsManager:
             if total_count>0:
                 self.metrics_count[metric_type][metric_name][rank]/=total_count
                 self.metrics_count[metric_type][metric_name][rank]*=100
+                if(adjust):
+                    self.metrics_count[metric_type][metric_name][rank]*=adjust
+
+                                                                         
 
     def del_metric_low_ratios(self,metric_type,ratio_limit):
         """ Delete metrics with low occurence over all metrics from the same type,
