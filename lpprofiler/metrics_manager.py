@@ -86,7 +86,7 @@ class MetricsManager:
             if total_count>0:
                 self.metrics_count[metric_type][metric_name][rank]/=total_count
                 self.metrics_count[metric_type][metric_name][rank]*=100
-                if(adjust):
+                if(adjust!=None):
                     self.metrics_count[metric_type][metric_name][rank]*=adjust
 
                                                                          
