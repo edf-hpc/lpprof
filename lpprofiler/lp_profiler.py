@@ -113,12 +113,12 @@ class LpProfiler :
     def _append_slurm_conf(self,first_rank,last_rank,profile=False):
 
         
-        with open("./{}/lpprofiler.conf".format(self.traces_directory),"a") as f_conf:
+        with open("{}/lpprofiler.conf".format(self.traces_directory),"a") as f_conf:
             if profile:
                 if (first_rank!=last_rank):
-                    f_conf.write("{}-{} bash ./{}/profile_cmd.sh %t\n".format(first_rank,last_rank,self.traces_directory))
+                    f_conf.write("{}-{} bash {}/profile_cmd.sh %t\n".format(first_rank,last_rank,self.traces_directory))
                 else:
-                    f_conf.write("{} bash ./{}/profile_cmd.sh {}\n".format(first_rank,self.traces_directory,first_rank))
+                    f_conf.write("{} bash {}/profile_cmd.sh {}\n".format(first_rank,self.traces_directory,first_rank))
                 
             else:
                 f_conf.write("{}-{} {}\n".format(first_rank,last_rank,self.binary))
@@ -185,15 +185,15 @@ class LpProfiler :
 
         self._print_slurm_conf(slurm_ntasks)
         
-        with open("./{}/profile_cmd.sh".format(self.traces_directory),"w") as f_cmd:
+        with open("{}/profile_cmd.sh".format(self.traces_directory),"w") as f_cmd:
             f_cmd.write(profile_cmd.replace('%t','$1')+self.binary)
 
 
-        st = os.stat("./{}/profile_cmd.sh".format(self.traces_directory))
-        os.chmod("./{}/profile_cmd.sh".format(self.traces_directory),st.st_mode | stat.S_IEXEC)
+        st = os.stat("{}/profile_cmd.sh".format(self.traces_directory))
+        os.chmod("{}/profile_cmd.sh".format(self.traces_directory),st.st_mode | stat.S_IEXEC)
 
         srun_argument="--cpu_bind=cores,verbose"
-        srun_cmd='{} --multi-prog ./{}/lpprofiler.conf'.format(self.launcher,self.traces_directory)
+        srun_cmd='{} --multi-prog {}/lpprofiler.conf'.format(self.launcher,self.traces_directory)
 
         return [srun_cmd]
 
