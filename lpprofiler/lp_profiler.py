@@ -213,8 +213,9 @@ class LpProfiler :
                 
                 for prof in self.profilers :
                     run_cmd+=prof.get_profile_cmd(pid_num,irank)
-                # Wait for tasks to start before starting perf
-                run_cmd='bash -c "while [[ $(ps -p {} --no-headers -o comm) == slurmstepd ]]; do sleep 0.1; done;"; '.format(pid_num)+run_cmd
+                    
+                # Wait for tasks to start before starting perf (needed for spank plugin)
+                run_cmd='bash -c "proc_name="slurmstepd"; while [[ "\${proc_name:0:10}" == slurmstepd ]]; '+'do proc_name=\$(ps -p {} --no-headers -o comm); done;"; '.format(pid_num)+run_cmd
                 # Wait for job to finish
                 run_cmd+='bash -c "while [ ! -e {}/job_done ] && [ -e /proc/{} ]; do sleep 2; done"'.format(os.path.abspath("."),pid_num)
 
@@ -224,7 +225,7 @@ class LpProfiler :
                     
                 irank+=1
 
-                
+            
             run_cmds.append(run_cmd)
             rank+=1
                 
