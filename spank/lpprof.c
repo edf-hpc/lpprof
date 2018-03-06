@@ -295,9 +295,6 @@ static int _init_lpprof_dir(unsigned int taskid,
     return (-1);
   }
 
-
-  
-      
   return(0);
     
 }
@@ -371,13 +368,9 @@ static int _exec_lpprof(const spank_t sp,int frequency,
 	return (-1);
       }
 
-      // A delay is needed to let profiling processes be ready to attach
-      // TODO: add a proper check instead
-      sleep(2);
-
-
       return(0);
     }
   }
+
 }
 

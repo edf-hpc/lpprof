@@ -1,4 +1,14 @@
-lpprof (0.2.1+c9+1) calibre9; urgency=medium
+lpprof (0.2.2) unstable; urgency=medium
+
+  * Correct -o option to make absolute paths work
+  * Correct lpprof man page by escaping special characters
+  * Correct symbols report when cpu utilized is 0
+  * Correct --pids option
+  * Correct lpprof pids option needed for spank plugin
+
+ -- Pierre Trespeuch <pierre-externe.trespeuch@edf.fr>  Tue, 06 Mar 2018 11:13:06 +0100
+
+lpprof (0.2.1) unstable; urgency=medium
 
   * Correct lpprof-spank control file
   * Change result directory name if SLURM_JOB_ID env variable is set
