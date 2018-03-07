@@ -205,7 +205,7 @@ class PerfSamplesProfiler(prof.Profiler) :
         objdump_output=stdout.decode('utf-8')
 
         # Get objdump line containing the eip address
-        regexp=r''+hex(int(eip_address,16))[2:]+'.*'
+        regexp=r''+hex(adjusted_eip_address)[2:]+'.*'
         try:
             first_line_matching_address=re.findall(regexp,objdump_output)[0]
         except:
